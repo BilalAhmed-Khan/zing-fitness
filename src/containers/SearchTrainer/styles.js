@@ -1,0 +1,176 @@
+import { ScaledSheet } from 'react-native-size-matters';
+import { Colors, Fonts, Metrics } from '../../theme';
+
+export const Styles = ScaledSheet.create({
+  header: {
+    justifyContent: 'space-between',
+    paddingVertical: '32@ms',
+  },
+  content: {
+    flex: 1,
+  },
+  mapContent: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: '90@ms',
+  },
+  trainerList: {
+    flexGrow: 0,
+    paddingHorizontal: Metrics.smallMargin,
+  },
+  trainerItemContainer: {
+    height: '216@ms',
+    justifyContent: 'flex-end',
+    paddingHorizontal: Metrics.smallMargin,
+  },
+  trainerAvatar: {
+    width: '90@ms',
+    height: '90@ms',
+    borderRadius: '12@ms',
+    position: 'absolute',
+    zIndex: 1,
+    top: 0,
+    left: 28,
+  },
+  trainerItemContent: {
+    width: '250@ms',
+    height: '181@ms',
+    backgroundColor: Colors.tertiary,
+    borderRadius: '16@ms',
+    paddingVertical: Metrics.baseMargin,
+    paddingHorizontal: Metrics.largeMargin,
+  },
+  like: {
+    alignSelf: 'flex-end',
+    width: '28@ms',
+    alignItems: 'center',
+  },
+  likesCount: {
+    fontSize: '12@ms',
+    fontFamily: Fonts.regular,
+    marginTop: '2@ms',
+  },
+  trainerName: {
+    fontSize: '14@ms',
+    fontFamily: Fonts.medium,
+    marginTop: '12@ms',
+  },
+  timeStyle: {
+    fontSize: 23,
+    fontFamily: Fonts.medium,
+    // marginTop: '5@ms',
+  },
+  typeStyle: {
+    fontSize: '14@ms',
+    fontFamily: Fonts.medium,
+    marginLeft: '12@ms',
+  },
+  trainerminiName: {
+    fontSize: 10,
+    fontFamily: Fonts.medium,
+    marginTop: '12@ms',
+    textAlign: 'center',
+  },
+  trainerType: {
+    color: Colors.grey2,
+    fontSize: '12@ms',
+    fontFamily: Fonts.regular,
+  },
+  trainerActionButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: Metrics.baseMargin,
+    borderTopColor: Colors.grey3,
+    borderTopWidth: 1,
+    marginTop: Metrics.baseMargin,
+  },
+  verticalLine: {
+    width: 1,
+    height: 26,
+    backgroundColor: Colors.grey3,
+  },
+  fullBox: {
+    backgroundColor: Colors.tertiary,
+    borderRadius: '14@ms',
+    height: '51@ms',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexDirection: 'row',
+    paddingLeft: Metrics.baseMargin,
+    paddingRight: Metrics.smallMargin,
+    marginTop: Metrics.smallMargin,
+    width: '90%',
+  },
+  fullBox2: {
+    // backgroundColor: Colors.tertiary,
+    // borderRadius: '14@ms',
+    // height: '51@ms',
+    alignItems: 'center',
+    // justifyContent: 'space-between',
+    flexDirection: 'row',
+    // paddingLeft: Metrics.baseMargin,
+    // paddingRight: Metrics.smallMargin,
+    marginTop: Metrics.smallMargin,
+    // width: '90%',
+  },
+  timeFull: {
+    fontFamily: Fonts.regular,
+    fontSize: '13@ms',
+  },
+  loactionHeading: {
+    fontFamily: Fonts.regular,
+    fontSize: '10@ms',
+  },
+  priceText: {
+    fontFamily: Fonts.regular,
+    fontSize: '20@ms',
+  },
+  otherText: {
+    fontFamily: Fonts.regular,
+    fontSize: '12@ms',
+    color: Colors.lightGrey,
+    // marginBottom: '12@ms',
+  },
+  descText: {
+    fontFamily: Fonts.regular,
+    fontSize: '12@ms',
+    color: Colors.lightGrey,
+    marginBottom: '12@ms',
+  },
+  orContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: Metrics.smallMargin,
+    paddingHorizontal: Metrics.baseMargin,
+  },
+  horizontalLine: {
+    width: '100%',
+    height: 0.5,
+    backgroundColor: Colors.grey1,
+  },
+  tagView: {
+    alignSelf: 'flex-start',
+    marginVertical: Metrics.miniMargin,
+    padding: '6@ms',
+    borderRadius: 8,
+    backgroundColor: Colors.blue,
+  },
+  tagViewText: {
+    color: Colors.white,
+    fontSize: '11@ms',
+  },
+  countdigitStyle: {
+    height: 28,
+    width: 26,
+  },
+  countdigitTxtStyle: {
+    color: Colors.white,
+    fontSize: Fonts.size.size_20,
+  },
+});

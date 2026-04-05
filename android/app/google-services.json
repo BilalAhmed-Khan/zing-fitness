@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "196225083761",
+    "project_id": "zingfitness-ab6d2",
+    "storage_bucket": "zingfitness-ab6d2.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:196225083761:android:a2f8d6299af7010bcb6ed0",
+        "android_client_info": {
+          "package_name": "com.zingFitness.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "196225083761-7o10p78hpctpu4k0gfe4d19emdgoohdj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDEAKVvrfu6M9F-gHV3ReVQFAmEwTCWfPQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "196225083761-7o10p78hpctpu4k0gfe4d19emdgoohdj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "196225083761-dekic5i93mknnb06trk14jsfk4cqcc0q.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.zingfitness.users"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
