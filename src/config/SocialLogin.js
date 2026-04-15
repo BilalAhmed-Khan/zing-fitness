@@ -2,6 +2,6 @@
 export const googleProfileRequestConfig = {
   scopes: [],
   webClientId:
-    '196225083761-7o10p78hpctpu4k0gfe4d19emdgoohdj.apps.googleusercontent.com',
+    '525587273234-3grqbi09c4iefn5ov45k9pujk77t3t0e.apps.googleusercontent.com',
   iosClientId: '',
 };

@@ -1,10 +1,10 @@
 /** @format */
 
 import React from 'react';
-import { View, Text, TextRN, Image, TouchableOpacity } from 'react-native';
-import { Colors, Metrics } from '../../theme';
-// import PropTypes from "prop-types";
+import { View, Text, Image } from 'react-native';
+import PropTypes from 'prop-types';
 import { ViewPropTypes } from 'deprecated-react-native-prop-types';
+import { Colors } from '../../theme';
 import styles from './styles';
 import { ButtonView } from '../../components';
 import { Images } from '../../theme';
@@ -48,13 +48,17 @@ const ContentAttributesText = ({
 };
 
 ContentAttributesText.propTypes = {
-  checkBox: ViewPropTypes.boolean,
-  content: ViewPropTypes.string,
-  phrase1: ViewPropTypes.string,
-  phrase2: ViewPropTypes.string,
-  seperatorTile: ViewPropTypes.string,
-  phrase1CallBack: ViewPropTypes.func,
-  phrase2CallBack: ViewPropTypes.func,
+  checkBox: PropTypes.bool,
+  content: PropTypes.string,
+  phrase1: PropTypes.string,
+  phrase2: PropTypes.string,
+  seperatorTile: PropTypes.string,
+  phrase1CallBack: PropTypes.func,
+  phrase2CallBack: PropTypes.func,
+  containerStyle: ViewPropTypes.style,
+  textStyle: ViewPropTypes.style,
+  onPressCheckBox: PropTypes.func,
+  checkBoxState: PropTypes.bool,
 };
 
 ContentAttributesText.defaultProps = {

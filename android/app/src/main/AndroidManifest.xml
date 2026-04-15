@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-  package="com.fitness.app">
+  package="com.zingFitness.app">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
@@ -9,7 +9,7 @@
     <uses-permission android:name="android.permission.CAMERA"/>
 
     <application
-      android:name=".MainApplication"
+      android:name="com.fitness.app.MainApplication"
       android:label="@string/app_name"
       android:icon="@mipmap/ic_launcher"
       android:roundIcon="@mipmap/ic_launcher"
@@ -23,12 +23,12 @@
       <meta-data android:name="com.facebook.sdk.ApplicationId" android:value="@string/facebook_app_id"/>
       <meta-data android:name="com.facebook.sdk.ClientToken" android:value="@string/facebook_client_token"/>
       <activity
-        android:name=".MainActivity"
+        android:name="com.fitness.app.MainActivity"
         android:label="@string/app_name"
         android:configChanges="keyboard|keyboardHidden|orientation|screenSize|uiMode"
         android:launchMode="singleTask"
         android:windowSoftInputMode="adjustResize"
-        android:exported="false"
+        android:exported="true"
         >
         <intent-filter>
             <action android:name="android.intent.action.MAIN" />
@@ -41,7 +41,7 @@
         android:label="@string/app_name" 
          android:exported="false"
         />
-      <!-- <activity
+      <activity
         android:name="com.facebook.CustomTabActivity"
         android:exported="true">
         <intent-filter>
@@ -50,7 +50,7 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="@string/fb_login_protocol_scheme" />
         </intent-filter>
-    </activity> -->
+    </activity>
     <meta-data
         android:name="com.google.android.gms.wallet.api.enabled"
         android:value="true" />

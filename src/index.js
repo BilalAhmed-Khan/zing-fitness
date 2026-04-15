@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import SplashScreen from 'react-native-splash-screen';
+import { startNetworkLogging } from 'react-native-network-logger';
 import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 
@@ -19,6 +21,7 @@ import {
 import { SessionCompleteModal, TraineeAlertModal } from './modal';
 import FlashMessage from 'react-native-flash-message';
 import { TopBar } from './components';
+import NetworkFab from './components/NetworkFab';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { googleProfileRequestConfig } from './config/SocialLogin';
 import { StripeProvider } from '@stripe/stripe-react-native';
@@ -59,6 +62,9 @@ const App = () => {
   };
 
   useEffect(() => {
+    if (__DEV__) {
+      startNetworkLogging();
+    }
     // configure store
     configureStore(onStoreConfigure);
 
@@ -77,12 +83,15 @@ const App = () => {
       publishableKey={CLIENT_SECRET_KEY}
       merchantIdentifier={'merchant.app.zingfitness'}>
       <Provider store={storeState}>
-        <AppNavigator />
-        <FlashMessage position="top" />
-        <SessionCompleteModal
-          ref={ref => DataHandler.setSessionCompleteModal(ref)}
-        />
-        <TraineeAlertModal ref={ref => DataHandler.setTraineAlertModal(ref)} />
+        <View style={{ flex: 1 }}>
+          <AppNavigator />
+          <FlashMessage position="top" />
+          <SessionCompleteModal
+            ref={ref => DataHandler.setSessionCompleteModal(ref)}
+          />
+          <TraineeAlertModal ref={ref => DataHandler.setTraineAlertModal(ref)} />
+          {__DEV__ ? <NetworkFab /> : null}
+        </View>
       </Provider>
     </StripeProvider>
   );

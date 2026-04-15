@@ -18,6 +18,8 @@ dist/
 
 # Package files
 *.jar
+# Gradle wrapper must be versioned (bootstrap for ./gradlew)
+!android/gradle/wrapper/gradle-wrapper.jar
 
 # Maven
 target/

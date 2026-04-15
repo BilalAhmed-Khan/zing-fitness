@@ -1,0 +1,75 @@
+import { StyleSheet } from 'react-native';
+
+export const styles = StyleSheet.create({
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 90,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    zIndex: 999,
+  },
+  fabInner: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  networkIcon: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 2,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  modalHeader: {
+    height: 60,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    marginTop: 50,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeIcon: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeLine1: {
+    position: 'absolute',
+    width: 20,
+    height: 2,
+    backgroundColor: '#FFFFFF',
+    transform: [{ rotate: '45deg' }],
+  },
+  closeLine2: {
+    position: 'absolute',
+    width: 20,
+    height: 2,
+    backgroundColor: '#FFFFFF',
+    transform: [{ rotate: '-45deg' }],
+  },
+});

@@ -19,7 +19,7 @@ import { useHookForm, ValidationSchema } from '../../utils/ValidationUtil';
 import { appleToken, authLogin, externalLogin } from '../../ducks/auth';
 
 const Login = () => {
-  const isTrainee = useSelector(getUserRole);
+  const isTrainer = useSelector(getUserRole);
 
   const dispatch = useDispatch();
 
@@ -36,13 +36,14 @@ const Login = () => {
   // submit
   const submit = formObj.handleSubmit(values => {
     console.log('values', values);
-    values.userType = isTrainee ? 'TRAINER' : 'USER';
+    values.userType = isTrainer ? 'TRAINER' : 'USER';
     dispatch(
       authLogin.request({
         payloadApi: values,
         cb: data => {
           console.log('data?.user_details.age', data);
-          if (data.userType === 'USER') {
+          const role = data?.userType ?? data?.user_type;
+          if (role === 'USER') {
             NavigationService.reset('UserApp');
             dispatch(setUserRole({ trainer: false }));
           } else {
@@ -105,32 +106,36 @@ const Login = () => {
   };
 
   const externalLoginApi = values => {
-    values.userType = isTrainee ? 'TRAINER' : 'USER';
-    console.log(values);
-    setTimeout(() => {
-      dispatch(
-        externalLogin.request({
-          payloadApi: values,
-          cb: data => {
-            console.log(data, 'data');
+    const payloadApi = {
+      ...values,
+      userType: isTrainer ? 'TRAINER' : 'USER',
+    };
+    console.log(payloadApi);
+    dispatch(
+      externalLogin.request({
+        payloadApi,
+        cb: data => {
+          console.log(data, 'data');
+          const role = data?.userType ?? data?.user_type ?? payloadApi.userType;
 
-            if (data?.userType === 'USER') {
-              NavigationService.reset('UserApp');
-              dispatch(setUserRole({ trainer: false }));
+          if (role === 'USER') {
+            NavigationService.reset('UserApp');
+            dispatch(setUserRole({ trainer: false }));
+            return;
+          }
+          if (role === 'TRAINER') {
+            if (!data?.isProfileCompleted) {
+              NavigationService.navigate('TrainerEditCertificates', {
+                data: data,
+              });
             } else {
-              if (!data?.isProfileCompleted) {
-                NavigationService.navigate('TrainerEditCertificates', {
-                  data: data,
-                });
-              } else {
-                NavigationService.reset('TrainerApp');
-              }
-              dispatch(setUserRole({ trainer: true }));
+              NavigationService.reset('TrainerApp');
             }
-          },
-        }),
-      );
-    }, 300);
+            dispatch(setUserRole({ trainer: true }));
+          }
+        },
+      }),
+    );
   };
 
   return (

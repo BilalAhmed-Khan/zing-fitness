@@ -1,93 +1,130 @@
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import {
   LoginManager,
   GraphRequest,
   AccessToken,
   GraphRequestManager,
 } from 'react-native-fbsdk-next';
-// import DataHandler from "./DataHandler";
-// import Util from "./Util";
 import { appleAuth } from '@invertase/react-native-apple-authentication';
-import { jwtDecode } from 'jwt-decode';
-import { Alert } from 'react-native';
-import DataHandler from './DataHandler';
-import { appleToken } from '../ducks/auth';
-// import auth from '@react-native-firebase/auth';
-// import { SOCIAL_LOGIN_TYPES } from "../config/Constants";
+import { Alert, Platform } from 'react-native';
 
 async function googleLogin(succusCallback) {
-  // Get the users ID token
-  console.log(user, 'userInfo');
-  const { user, idToken } = await GoogleSignin.signIn();
-  console.log(user, 'userInfo');
-  const payloadApi = {
-    emailAddress: user?.email,
-    platformId: user?.id,
-    firstName: user?.givenName,
-    lastName: user?.familyName,
-  };
-  if (user?.photo) {
-    payloadApi.image = user?.photo;
+  try {
+    if (Platform.OS === 'android') {
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
+    }
+    const signInResult = await GoogleSignin.signIn();
+    const user = signInResult?.user;
+    const payloadApi = {
+      emailAddress: user?.email,
+      platformId: user?.id,
+      firstName: user?.givenName,
+      lastName: user?.familyName,
+    };
+    if (signInResult?.idToken) {
+      payloadApi.idToken = signInResult.idToken;
+    }
+    if (user?.photo) {
+      payloadApi.image = user?.photo;
+    }
+    if (!payloadApi.platformId || !payloadApi.emailAddress) {
+      Alert.alert(
+        'Google Sign-In',
+        'Could not read your Google account id or email. Check that the Google account has email permission and that Sign-In is configured with the correct Web client ID.',
+      );
+      return;
+    }
+    succusCallback?.(payloadApi);
+  } catch (error) {
+    if (error?.code === statusCodes.SIGN_IN_CANCELLED) {
+      return;
+    }
+    const message =
+      error?.message === 'DEVELOPER_ERROR'
+        ? 'Google Sign-In needs your app’s SHA-1 in Firebase: open Firebase Console → Project settings → your Android app → add the debug keystore SHA-1, then download the updated google-services.json.'
+        : error?.message || 'Google sign-in failed.';
+    console.warn('Google Sign-In', error);
+    Alert.alert('Google Sign-In', message);
   }
-  console.log(payloadApi, 'payloadApi');
-  succusCallback?.(payloadApi);
-  // Create a Google credential with the tokens
-  // const googleCredential = auth.GoogleAuthProvider.credential(idToken);
 }
 
 async function getInfoFromToken(token, succusCallback) {
   const PROFILE_REQUEST_PARAMS = {
     fields: {
-      string: 'id, name,  first_name, last_name, email',
+      string: 'id,name,first_name,last_name,email',
     },
   };
   const profileRequest = new GraphRequest(
     '/me',
-    { token, parameters: PROFILE_REQUEST_PARAMS },
+    {
+      accessToken: token,
+      parameters: PROFILE_REQUEST_PARAMS,
+    },
     (error, result) => {
       if (error) {
-        console.log('login info has error: ' + error);
-      } else {
-        const payloadApi = {
-          platformId: result.id,
-          emailAddress: result.email,
-          firstName: result.first_name,
-          lastName: result.last_name,
-        };
-        console.log('result:', payloadApi);
-        succusCallback?.(payloadApi);
+        console.warn('Facebook Graph /me error', error);
+        const msg =
+          error?.errorMessage ||
+          error?.message ||
+          'Could not load your Facebook profile.';
+        Alert.alert('Facebook', String(msg));
+        return;
       }
+      const payloadApi = {
+        platformId: result.id,
+        emailAddress: result.email,
+        firstName: result.first_name,
+        lastName: result.last_name,
+        accessToken: token,
+      };
+      if (!payloadApi.platformId) {
+        Alert.alert(
+          'Facebook',
+          'Could not read your Facebook account id. Try again or check app permissions in Meta Developer settings.',
+        );
+        return;
+      }
+      if (!payloadApi.emailAddress) {
+        Alert.alert(
+          'Facebook',
+          'Your Facebook account did not share an email. Use an account with email or enable email permission for this app in Meta Developer settings.',
+        );
+        return;
+      }
+      succusCallback?.(payloadApi);
     },
   );
   new GraphRequestManager().addRequest(profileRequest).start();
 }
 
 async function facebookLogin(succusCallback) {
-  // LoginManager.logOut();
-
-  LoginManager.logInWithPermissions(['public_profile', 'email']).then(
-    function (result) {
-      if (result.isCancelled) {
-        console.log('Login cancelled');
-      } else {
-        AccessToken.getCurrentAccessToken().then(data => {
-          const accessToken = data.accessToken.toString();
-          console.log(accessToken, 'accessToken fb');
-          getInfoFromToken(
-            accessToken,
-            succusCallback,
-            // SOCIAL_LOGIN_TYPES.FACEBOOK
-          );
-        });
-        console.log(
-          'Login success with permissions: ' + JSON.stringify(result),
-        );
-      }
-    },
-    function (error) {
-      console.log('Login fail with error: ' + error);
-    },
-  );
+  try {
+    const result = await LoginManager.logInWithPermissions([
+      'public_profile',
+      'email',
+    ]);
+    if (result.isCancelled) {
+      return;
+    }
+    const data = await AccessToken.getCurrentAccessToken();
+    if (!data?.accessToken) {
+      Alert.alert(
+        'Facebook',
+        'Could not read an access token. Check Facebook app settings (package name com.zingFitness.app and key hashes).',
+      );
+      return;
+    }
+    getInfoFromToken(data.accessToken.toString(), succusCallback);
+  } catch (error) {
+    console.warn('Facebook login', error);
+    Alert.alert(
+      'Facebook',
+      error?.message ||
+        'Facebook sign-in failed. Verify the Facebook app ID and key hashes in Meta Developer settings.',
+    );
+  }
 }
 async function appleLogin(succusCallback) {
   const appleAuthRequestResponse = await appleAuth.performRequest({

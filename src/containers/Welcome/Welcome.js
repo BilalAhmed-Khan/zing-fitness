@@ -27,6 +27,9 @@ const Welcome = () => {
         phrase1CallBack={() => {
           NavigationService.navigate('TermsAndPolices');
         }}
+        phrase2CallBack={() => {
+          NavigationService.navigate('TermsAndPolices');
+        }}
         textStyle={Styles.alignStyle}
       />
     </View>

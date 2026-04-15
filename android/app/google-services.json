@@ -1,41 +1,50 @@
 {
   "project_info": {
-    "project_number": "196225083761",
-    "project_id": "zingfitness-ab6d2",
-    "storage_bucket": "zingfitness-ab6d2.appspot.com"
+    "project_number": "525587273234",
+    "project_id": "zingfitness-f0507",
+    "storage_bucket": "zingfitness-f0507.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:196225083761:android:a2f8d6299af7010bcb6ed0",
+        "mobilesdk_app_id": "1:525587273234:android:403adb5f23e51e23352acb",
         "android_client_info": {
           "package_name": "com.zingFitness.app"
         }
       },
       "oauth_client": [
         {
-          "client_id": "196225083761-7o10p78hpctpu4k0gfe4d19emdgoohdj.apps.googleusercontent.com",
+          "client_id": "525587273234-03cemgsemmc7oh0t4e5t7hfq8lpr8q22.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.zingFitness.app",
+            "certificate_hash": "b03d2c062fb012de03a50ff0f3b489b3dc2415a5"
+          }
+        },
+        {
+          "client_id": "525587273234-21e8t6ko1erlnisa5687gn1l5m0urt29.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.zingFitness.app",
+            "certificate_hash": "a421f8cadf3a12d253f91fe1b08253b2584023f3"
+          }
+        },
+        {
+          "client_id": "525587273234-3grqbi09c4iefn5ov45k9pujk77t3t0e.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyDEAKVvrfu6M9F-gHV3ReVQFAmEwTCWfPQ"
+          "current_key": "AIzaSyDdvGh8FbegCzM3jcLrr7TldOpZO5mjyVY"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "196225083761-7o10p78hpctpu4k0gfe4d19emdgoohdj.apps.googleusercontent.com",
+              "client_id": "525587273234-3grqbi09c4iefn5ov45k9pujk77t3t0e.apps.googleusercontent.com",
               "client_type": 3
-            },
-            {
-              "client_id": "196225083761-dekic5i93mknnb06trk14jsfk4cqcc0q.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.zingfitness.users"
-              }
             }
           ]
         }
