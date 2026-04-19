@@ -203,7 +203,9 @@ const TrainerHome = () => {
     }, 1000);
 
     return () => {
-      clearTimeout(timer.current);
+      if (timer.current) {
+        clearInterval(timer.current);
+      }
     };
   }, []);
 

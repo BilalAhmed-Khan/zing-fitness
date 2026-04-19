@@ -75,13 +75,16 @@ class FlatListApi extends React.Component {
   componentDidUpdate(prevProps) {
     const { requestFlags, data, filters, payload } = this.props;
     const { failure, errorMessage, loading } = requestFlags;
+    const prevFailure = prevProps.requestFlags.failure;
 
     // set boolean for first time refresh so do not add view at bottom
     if (!failure && !loading && data?.length > 0) {
       this.isFirstTimeRefreshed = true;
     }
 
-    if (failure && data?.length > 0) {
+    // Only toast when this request *just* failed (e.g. load-more). Otherwise any
+    // parent re-render (countdowns, animations) would spam the same error toast.
+    if (failure && data?.length > 0 && !prevFailure && errorMessage) {
       Util.showMessage(errorMessage);
     }
 

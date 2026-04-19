@@ -95,7 +95,9 @@ const UserHome = () => {
     }, 1000);
 
     return () => {
-      clearTimeout(timer.current);
+      if (timer.current) {
+        clearInterval(timer.current);
+      }
     };
   }, []);
 
