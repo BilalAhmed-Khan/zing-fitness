@@ -43,6 +43,7 @@ import {
   updateParticipants,
 } from '.';
 import { Util } from '../../utils';
+import { unwrapBookingPaymentResponse } from '../../utils/StripePaymentUtil';
 
 function* watchBookASession() {
   while (true) {
@@ -50,12 +51,13 @@ function* watchBookASession() {
     const { payloadApi, cb } = payload;
     try {
       const response = yield call(callRequest, API_BOOK_A_SESSION, payloadApi);
+      const bookingPayload = unwrapBookingPaymentResponse(response);
       yield put(
         bookSession.success({
-          data: response?.data,
+          data: bookingPayload,
         }),
       );
-      cb?.(response?.data);
+      cb?.(bookingPayload);
     } catch (error) {
       yield put(
         bookSession.failure({
@@ -73,12 +75,13 @@ function* watchBookAClass() {
     const { payloadApi, cb } = payload;
     try {
       const response = yield call(callRequest, API_BOOK_A_CLASS, payloadApi);
+      const bookingPayload = unwrapBookingPaymentResponse(response);
       yield put(
         bookClass.success({
-          data: response?.data,
+          data: bookingPayload,
         }),
       );
-      cb?.(response?.data);
+      cb?.(bookingPayload);
     } catch (error) {
       yield put(
         bookClass.failure({
@@ -516,12 +519,13 @@ function* watchCreatePayment() {
         {},
         id,
       );
+      const intentPayload = unwrapBookingPaymentResponse(response);
       yield put(
         createRealBookingIntent.success({
-          data: response?.data,
+          data: intentPayload,
         }),
       );
-      cb?.(response?.data);
+      cb?.(intentPayload);
     } catch (error) {
       yield put(
         createRealBookingIntent.failure({

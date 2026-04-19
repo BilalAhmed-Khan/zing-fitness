@@ -12,8 +12,8 @@ export const applePayRequestConfig = {
 };
 // google
 export const googlePayRequestConfig = {
-  testEnv: true,
-  merchantName: 'Dummy',
+  testEnv: __DEV__,
+  merchantName: 'Zing Fitness',
   countryCode: 'US',
   billingAddressConfig: {
     format: 'MIN',

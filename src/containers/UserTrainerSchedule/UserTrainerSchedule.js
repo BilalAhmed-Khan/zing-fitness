@@ -37,6 +37,7 @@ import {
 } from '../../ducks/trainer';
 import { Colors, Images, Metrics } from '../../theme';
 import { DataHandler, NavigationService, Util } from '../../utils';
+import { normalizeStripeBookingPayment } from '../../utils/StripePaymentUtil';
 
 import { Styles } from './Styles';
 import { s } from 'react-native-size-matters';
@@ -104,7 +105,6 @@ const UserTrainerSchedule = ({ route }) => {
     initGooglePay,
     presentGooglePay,
     isGooglePaySupported,
-    createGooglePayPaymentMethod,
   } = useGooglePay();
 
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
@@ -157,16 +157,19 @@ const UserTrainerSchedule = ({ route }) => {
         existingPaymentMethodRequired: false,
         isEmailRequired: false,
       });
+      if (error) {
+        Util.showMessage(error.message);
+        return;
+      }
       _processGooglePay(data.clientSecret);
     } catch (err) {
       console.log(err, 'err');
+      Util.showMessage('Unable to initialize Google Pay.');
     }
   };
   const initializePaymentSheet = async data => {
-    const { error } = await initPaymentSheet({
+    const initParams = {
       merchantDisplayName: 'Zing.',
-      customerId: data.customerId,
-      customerEphemeralKeySecret: data.ephemeralsecret,
       paymentIntentClientSecret: data.clientSecret,
       // Set `allowsDelayedPaymentMethods` to true if your business can handle payment
       //methods that complete payment after a delay, like SEPA Debit and Sofort.
@@ -174,9 +177,16 @@ const UserTrainerSchedule = ({ route }) => {
       defaultBillingDetails: {
         name: 'Jane Doe',
       },
-    });
+    };
+    if (data.customerId && data.ephemeralsecret) {
+      initParams.customerId = data.customerId;
+      initParams.customerEphemeralKeySecret = data.ephemeralsecret;
+    }
+    const { error } = await initPaymentSheet(initParams);
     if (error) {
       console.log(error);
+      Util.showMessage(error.message);
+      return;
     }
     setTimeout(() => {
       openPaymentSheet();
@@ -195,8 +205,8 @@ const UserTrainerSchedule = ({ route }) => {
   };
 
   const _processGooglePay = async (clientSecret, paymentIntentId) => {
-    if (!(await isGooglePaySupported({ testEnv: true }))) {
-      Alert.alert('Google Pay is not supported.');
+    if (!(await isGooglePaySupported({ testEnv: googlePayRequestConfig.testEnv }))) {
+      Util.showMessage('Google Pay is not supported.');
       return;
     }
     const { error } = await presentGooglePay({
@@ -385,16 +395,21 @@ const UserTrainerSchedule = ({ route }) => {
   );
 
   const openPayment = data => {
-    // console.log('openPayment ===>', data);
-
+    const stripe = normalizeStripeBookingPayment(data);
+    if (!stripe.clientSecret) {
+      Util.showMessage(
+        'Payment could not be started. Please try again or contact support.',
+      );
+      return;
+    }
     const paymentData = {
-      ephemeralsecret: data?.ephemeralKey?.secret,
-      clientSecret: data?.paymentIntent?.client_secret,
-      customerId: data?.paymentIntent?.customer,
+      ephemeralsecret: stripe.ephemeralSecret,
+      clientSecret: stripe.clientSecret,
+      customerId: stripe.customerId,
     };
-    // console.log(paymentData);
+    const paymentIntentForApple = stripe.paymentIntent ?? data?.paymentIntent;
     if (selectedPayment === PAYMENT_TYPE.APPLE) {
-      _processApplePay(paymentData.clientSecret, data?.paymentIntent);
+      _processApplePay(paymentData.clientSecret, paymentIntentForApple);
     } else if (selectedPayment === PAYMENT_TYPE.GOOGLE) {
       initializeGooglePlay(paymentData);
     } else {

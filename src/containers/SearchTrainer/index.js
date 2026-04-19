@@ -21,6 +21,7 @@ import {
 import Lottie from 'lottie-react-native';
 import { Colors, Images, Metrics } from '../../theme';
 import { DataHandler, NavigationService, Util } from '../../utils';
+import { normalizeStripeBookingPayment } from '../../utils/StripePaymentUtil';
 
 import { Styles } from './styles';
 import { getUserData } from '../../ducks/auth';
@@ -122,10 +123,8 @@ const SearchTrainer = ({ route }) => {
   };
 
   const initializePaymentSheet = async data => {
-    const { error } = await initPaymentSheet({
+    const initParams = {
       merchantDisplayName: 'Zing.',
-      customerId: data.customerId,
-      customerEphemeralKeySecret: data.ephemeralsecret,
       paymentIntentClientSecret: data.clientSecret,
       // Set `allowsDelayedPaymentMethods` to true if your business can handle payment
       //methods that complete payment after a delay, like SEPA Debit and Sofort.
@@ -133,9 +132,16 @@ const SearchTrainer = ({ route }) => {
       defaultBillingDetails: {
         name: 'Jane Doe',
       },
-    });
+    };
+    if (data.customerId && data.ephemeralsecret) {
+      initParams.customerId = data.customerId;
+      initParams.customerEphemeralKeySecret = data.ephemeralsecret;
+    }
+    const { error } = await initPaymentSheet(initParams);
     if (error) {
       console.log(error);
+      Util.showMessage(error.message);
+      return;
     }
     setTimeout(() => {
       openPaymentSheet();
@@ -145,10 +151,17 @@ const SearchTrainer = ({ route }) => {
   const openPayment = data => {
     console.log('openPayment ===>', data);
 
+    const stripe = normalizeStripeBookingPayment(data);
+    if (!stripe.clientSecret) {
+      Util.showMessage(
+        'Payment could not be started. Please try again or contact support.',
+      );
+      return;
+    }
     const paymentData = {
-      ephemeralsecret: data?.ephemeralKey?.secret,
-      clientSecret: data?.paymentIntent?.client_secret,
-      customerId: data?.paymentIntent?.customer,
+      ephemeralsecret: stripe.ephemeralSecret,
+      clientSecret: stripe.clientSecret,
+      customerId: stripe.customerId,
     };
     console.log(paymentData);
 
