@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, FlatList, Image, Pressable } from 'react-native';
 import {
   AppHeader,
@@ -15,6 +15,7 @@ import Lottie from 'lottie-react-native';
 import { Colors, Images, Metrics } from '../../theme';
 import { DataHandler, NavigationService, Util } from '../../utils';
 import { normalizeStripeBookingPayment } from '../../utils/StripePaymentUtil';
+import NearbyTrainersSheet from './NearbyTrainersSheet';
 
 import { Styles } from './styles';
 import { useDispatch, useSelector } from 'react-redux';
@@ -71,7 +72,12 @@ const SearchTrainer = ({ route }) => {
     getRequestFlag(`GET_TRAINER_LISTING_${NEARBY_TRAINERS_MAP_ID}`),
   );
   const dispatch = useDispatch();
+  const [sheetSnap, setSheetSnap] = useState('collapsed');
   console.log('trainerFlag', trainerFlag, bookingData);
+
+  const onTrainerSheetSnap = useCallback(phase => {
+    setSheetSnap(phase);
+  }, []);
 
   const sessionLat = UserUtill.lat(payloadData);
   const sessionLng = UserUtill.long(payloadData);
@@ -139,6 +145,97 @@ const SearchTrainer = ({ route }) => {
       dispatch(trainerAccept({ id: '' }));
     };
   }, [dispatch]);
+
+  const mapFitBottomPadding = useMemo(() => {
+    if (trainerFlag !== '') {
+      return 100;
+    }
+    if (sheetSnap === 'expanded') {
+      return 72;
+    }
+    if (nearbyTrainers.length > 0) {
+      return 280;
+    }
+    return listingRequest.loading ? 170 : 165;
+  }, [trainerFlag, nearbyTrainers.length, listingRequest.loading, sheetSnap]);
+
+  const goTrainerProfile = item => {
+    const id = UserUtill.id(item);
+    if (!id) {
+      return;
+    }
+    NavigationService.navigate('UserTrainerProfile', { id });
+  };
+
+  const renderSheetTrainerRow = ({ item }) => {
+    const categories = Util.getTrainerCategoreis(item?.trainerCategories ?? []);
+    const session = item.session || {};
+    const priceStr =
+      session.price != null && session.price !== ''
+        ? `$${session.price}`
+        : null;
+    const durationStr = session.duration ? `${session.duration} min` : '';
+    const priceLine = [priceStr, durationStr].filter(Boolean).join(' / ');
+    const extras = [
+      item.yearsOfExperience != null &&
+      String(item.yearsOfExperience).trim() !== ''
+        ? `${String(item.yearsOfExperience).trim()} yrs`
+        : null,
+      item.coverageMiles != null && String(item.coverageMiles).trim() !== ''
+        ? `${String(item.coverageMiles).trim()} mi coverage`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    const desc = session.description ? String(session.description).trim() : '';
+    const showDesc = desc !== '' && desc.toLowerCase() !== 'na';
+
+    return (
+      <Pressable style={Styles.sheetRow} onPress={() => goTrainerProfile(item)}>
+        <ImageView
+          source={{ uri: UserUtill.image(item) }}
+          borderRadius={10}
+          style={Styles.sheetRowAvatar}
+          placeholderStyle={Styles.sheetRowAvatar}
+        />
+        <View style={Styles.sheetRowBody}>
+          <Text style={Styles.sheetRowName} numberOfLines={1}>
+            {UserUtill.name(item) ||
+              [item.firstName, item.lastName].filter(Boolean).join(' ')}
+          </Text>
+          {categories ? (
+            <Text style={Styles.sheetRowMeta} numberOfLines={2}>
+              {categories}
+            </Text>
+          ) : null}
+          <View style={Styles.sheetRowBadges}>
+            {item.isOnline ? (
+              <Text style={Styles.sheetOnline}>Online</Text>
+            ) : null}
+            {extras ? <Text style={Styles.sheetRowMeta}>{extras}</Text> : null}
+          </View>
+          {item.address ? (
+            <Text style={Styles.sheetRowAddress} numberOfLines={2}>
+              {item.address}
+            </Text>
+          ) : null}
+          {item.phone ? (
+            <Text style={Styles.sheetRowMeta} numberOfLines={1}>
+              {item.phone}
+            </Text>
+          ) : null}
+          {priceLine ? (
+            <Text style={Styles.sheetRowPrice}>{priceLine}</Text>
+          ) : null}
+          {showDesc ? (
+            <Text style={Styles.sheetRowMeta} numberOfLines={2}>
+              {desc}
+            </Text>
+          ) : null}
+        </View>
+      </Pressable>
+    );
+  };
 
   const sucessModal = () => {
     setTimeout(() => {
@@ -466,9 +563,23 @@ const SearchTrainer = ({ route }) => {
           latitude={UserUtill.lat(payloadData)}
           longitude={UserUtill.long(payloadData)}
           markers={trainerMarkers}
+          fitBottomPadding={mapFitBottomPadding}
         />
         <SearchBox />
-        {trainerFlag === '' ? mapContent() : trainerView()}
+        {trainerFlag === '' ? mapContent() : null}
+        {trainerFlag === '' ? (
+          <NearbyTrainersSheet
+            Styles={Styles}
+            nearbyTrainers={nearbyTrainers}
+            loading={listingRequest.loading}
+            renderItem={renderSheetTrainerRow}
+            keyExtractor={item =>
+              String(UserUtill.id(item) || item.emailAddress || '')
+            }
+            onSnap={onTrainerSheetSnap}
+          />
+        ) : null}
+        {trainerFlag !== '' ? trainerView() : null}
       </View>
       <Loader
         type={[

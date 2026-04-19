@@ -1,3 +1,4 @@
+import { StyleSheet } from 'react-native';
 import { ScaledSheet } from 'react-native-size-matters';
 import { Colors, Fonts, Metrics } from '../../theme';
 
@@ -172,5 +173,130 @@ export const Styles = ScaledSheet.create({
   countdigitTxtStyle: {
     color: Colors.white,
     fontSize: Fonts.size.size_20,
+  },
+  bottomSheetWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  bottomSheet: {
+    backgroundColor: Colors.secondary,
+    borderTopLeftRadius: '16@ms',
+    borderTopRightRadius: '16@ms',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 0,
+    borderColor: Colors.greyborder,
+    paddingBottom: '10@ms',
+    zIndex: 20,
+    elevation: 12,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    overflow: 'hidden',
+    flexDirection: 'column',
+  },
+  sheetDragZone: {
+    width: '100%',
+  },
+  sheetDragInner: {
+    alignItems: 'center',
+    paddingHorizontal: Metrics.baseMargin,
+    paddingBottom: '4@ms',
+  },
+  sheetBody: {
+    flex: 1,
+    minHeight: 0,
+  },
+  sheetFlatList: {
+    flex: 1,
+  },
+  sheetLoadingWrap: {
+    alignItems: 'center',
+    paddingVertical: '24@ms',
+    paddingHorizontal: Metrics.baseMargin,
+  },
+  sheetLoadingCaption: {
+    marginTop: '10@ms',
+    textAlign: 'center',
+  },
+  bottomSheetHandle: {
+    alignSelf: 'center',
+    width: '40@ms',
+    height: '4@ms',
+    borderRadius: '2@ms',
+    backgroundColor: Colors.grey3,
+    marginTop: '8@ms',
+    marginBottom: '10@ms',
+  },
+  bottomSheetTitle: {
+    fontFamily: Fonts.semiBold,
+    fontSize: '16@ms',
+    color: Colors.white,
+    marginBottom: '4@ms',
+    textAlign: 'center',
+  },
+  bottomSheetEmpty: {
+    fontFamily: Fonts.regular,
+    fontSize: '13@ms',
+    color: Colors.grey2,
+    paddingHorizontal: Metrics.baseMargin,
+    paddingBottom: '20@ms',
+  },
+  bottomSheetList: {
+    paddingHorizontal: Metrics.smallMargin,
+    paddingBottom: '8@ms',
+  },
+  sheetRow: {
+    flexDirection: 'row',
+    paddingVertical: '12@ms',
+    paddingHorizontal: Metrics.smallMargin,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.grey3,
+  },
+  sheetRowAvatar: {
+    width: '56@ms',
+    height: '56@ms',
+    borderRadius: '10@ms',
+  },
+  sheetRowBody: {
+    flex: 1,
+    marginLeft: '12@ms',
+  },
+  sheetRowName: {
+    fontFamily: Fonts.semiBold,
+    fontSize: '14@ms',
+    color: Colors.white,
+  },
+  sheetRowMeta: {
+    fontFamily: Fonts.regular,
+    fontSize: '11@ms',
+    color: Colors.grey2,
+    marginTop: '4@ms',
+  },
+  sheetRowBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginTop: '4@ms',
+  },
+  sheetOnline: {
+    fontFamily: Fonts.medium,
+    fontSize: '10@ms',
+    color: Colors.lightGreen,
+    marginRight: '8@ms',
+  },
+  sheetRowAddress: {
+    fontFamily: Fonts.regular,
+    fontSize: '11@ms',
+    color: Colors.lightGrey,
+    marginTop: '6@ms',
+  },
+  sheetRowPrice: {
+    fontFamily: Fonts.medium,
+    fontSize: '13@ms',
+    color: Colors.primary,
+    marginTop: '6@ms',
   },
 });

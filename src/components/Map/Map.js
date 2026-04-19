@@ -19,7 +19,7 @@ const isValidCoord = (lat, lng) =>
   lat !== -1 &&
   lng !== -1;
 
-const Map = ({ latitude, longitude, markers = [] }) => {
+const Map = ({ latitude, longitude, markers = [], fitBottomPadding = 100 }) => {
   const mapRef = useRef(null);
 
   const validMarkers = useMemo(
@@ -52,7 +52,12 @@ const Map = ({ latitude, longitude, markers = [] }) => {
           );
         } else {
           mapRef.current.fitToCoordinates(coordinates, {
-            edgePadding: { top: 100, right: 50, bottom: 100, left: 50 },
+            edgePadding: {
+              top: 100,
+              right: 50,
+              bottom: fitBottomPadding,
+              left: 50,
+            },
             animated: true,
           });
         }
@@ -61,7 +66,7 @@ const Map = ({ latitude, longitude, markers = [] }) => {
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [validMarkers]);
+  }, [validMarkers, fitBottomPadding]);
 
   return (
     <View style={Styles.container}>
