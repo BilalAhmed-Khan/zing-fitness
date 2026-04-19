@@ -1,12 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import {
-  View,
-  FlatList,
-  Image,
-  Pressable,
-  Animated,
-  Easing,
-} from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { View, FlatList, Image, Pressable } from 'react-native';
 import {
   AppHeader,
   Container,
@@ -24,7 +17,6 @@ import { DataHandler, NavigationService, Util } from '../../utils';
 import { normalizeStripeBookingPayment } from '../../utils/StripePaymentUtil';
 
 import { Styles } from './styles';
-import { getUserData } from '../../ducks/auth';
 import { useDispatch, useSelector } from 'react-redux';
 import { UserUtill } from '../../dataUtils';
 import {
@@ -39,6 +31,13 @@ import {
   presentPaymentSheet,
 } from '@stripe/stripe-react-native';
 import { createChatRoom } from '../../ducks/chat';
+import {
+  getTrainerListing,
+  getTrainerIdentifierListingData,
+} from '../../ducks/trainer';
+import { getRequestFlag } from '../../ducks/requestFlags';
+
+const NEARBY_TRAINERS_MAP_ID = 'SEARCH_TRAINER_NEARBY';
 
 const trainers = [
   {
@@ -62,43 +61,84 @@ const trainers = [
 ];
 
 const SearchTrainer = ({ route }) => {
-  const animationProgress = useRef(new Animated.Value(0));
   const payloadData = route.params?.payloadData ?? false;
-  const [isLoading, setisLoading] = useState(true);
-  const userData = useSelector(getUserData);
   const trainerFlag = useSelector(gettrainerFlag);
   const bookingData = useSelector(getbookingIdentifierBookingData(trainerFlag));
+  const nearbyTrainers = useSelector(
+    getTrainerIdentifierListingData(NEARBY_TRAINERS_MAP_ID),
+  );
+  const listingRequest = useSelector(
+    getRequestFlag(`GET_TRAINER_LISTING_${NEARBY_TRAINERS_MAP_ID}`),
+  );
   const dispatch = useDispatch();
   console.log('trainerFlag', trainerFlag, bookingData);
 
-  useEffect(() => {
-    if (trainerFlag === '') {
-      if (isLoading) {
-        Animated.timing(animationProgress.current, {
-          toValue: 1,
-          duration: 10000,
-          easing: Easing.linear,
-          useNativeDriver: false,
-          onComplete: () => {
-            console.log('asdasdasd');
-            setisLoading(false);
-            animationProgress.current.setValue(0);
-          },
-        }).start();
-      } else {
-        setisLoading(true);
-      }
+  const sessionLat = UserUtill.lat(payloadData);
+  const sessionLng = UserUtill.long(payloadData);
+
+  const trainerMarkers = useMemo(() => {
+    if (!Array.isArray(nearbyTrainers) || nearbyTrainers.length === 0) {
+      return [];
     }
-    return () => {
-      // dispatch(trainerAccept({ id: '' }));
+    const trainerDisplayName = t => {
+      const fromFull = UserUtill.name(t);
+      if (fromFull && String(fromFull).trim() !== '') {
+        return String(fromFull).trim();
+      }
+      const parts = [t.firstName, t.lastName]
+        .filter(Boolean)
+        .map(s => String(s).trim());
+      return parts.join(' ').trim();
     };
-  }, [isLoading]);
+    return nearbyTrainers
+      .map(t => {
+        const rawLat = t.currentLatitude ?? t.location?.cordinates?.[1];
+        const rawLng = t.currentLongitude ?? t.location?.cordinates?.[0];
+        const latitude =
+          typeof rawLat === 'string' ? parseFloat(rawLat) : rawLat;
+        const longitude =
+          typeof rawLng === 'string' ? parseFloat(rawLng) : rawLng;
+        return {
+          id: UserUtill.id(t) || `${latitude}-${longitude}`,
+          latitude,
+          longitude,
+          title: trainerDisplayName(t),
+        };
+      })
+      .filter(
+        m =>
+          typeof m.latitude === 'number' &&
+          !Number.isNaN(m.latitude) &&
+          typeof m.longitude === 'number' &&
+          !Number.isNaN(m.longitude) &&
+          m.latitude !== -1 &&
+          m.longitude !== -1,
+      );
+  }, [nearbyTrainers]);
+
+  useEffect(() => {
+    if (sessionLat === -1 || sessionLng === -1) {
+      return;
+    }
+    dispatch(
+      getTrainerListing.request({
+        payloadApi: {
+          nearbyTrainers: true,
+          search: '',
+          latitude: sessionLat,
+          longitude: sessionLng,
+        },
+        identifier: NEARBY_TRAINERS_MAP_ID,
+        reset: true,
+      }),
+    );
+  }, [dispatch, sessionLat, sessionLng]);
 
   useEffect(() => {
     return () => {
       dispatch(trainerAccept({ id: '' }));
     };
-  }, []);
+  }, [dispatch]);
 
   const sucessModal = () => {
     setTimeout(() => {
@@ -257,17 +297,23 @@ const SearchTrainer = ({ route }) => {
       </View>
     );
   };
+  const showSearchingOverlay =
+    trainerFlag === '' && listingRequest.loading && trainerMarkers.length === 0;
+
   const mapContent = () => (
     <>
       <View style={Styles.mapContent}>
-        {/* <TrainersList /> */}
-        <Lottie
-          // style={{ backgroundColor: Colors.white }}
-          source={Images.locationLottie}
-          progress={animationProgress.current}
-          loop={true}
-        />
-        <LocationImage />
+        {showSearchingOverlay ? (
+          <>
+            <Lottie
+              source={Images.locationLottie}
+              autoPlay
+              loop
+              style={{ width: 160, height: 160 }}
+            />
+            <LocationImage />
+          </>
+        ) : null}
       </View>
     </>
   );
@@ -373,12 +419,12 @@ const SearchTrainer = ({ route }) => {
             </Text>
           </View>
           <Line /> */}
-          <Text
-            style={
-              Styles.descText
-            }>{`You will need to pay the booking amount in 60 seconds or else the booking will be cancelled automatically.`}</Text>
+          <Text style={Styles.descText}>
+            You will need to pay the booking amount in 60 seconds or else the
+            booking will be cancelled automatically.
+          </Text>
           <Button
-            title={'PAY NOW'}
+            title="PAY NOW"
             disabled={trainerAccept === ''}
             onPress={() => {
               // dispatch(
@@ -419,11 +465,17 @@ const SearchTrainer = ({ route }) => {
         <Map
           latitude={UserUtill.lat(payloadData)}
           longitude={UserUtill.long(payloadData)}
+          markers={trainerMarkers}
         />
         <SearchBox />
         {trainerFlag === '' ? mapContent() : trainerView()}
       </View>
-      <Loader type={['CREATE_BOOKING_INTENT']} />
+      <Loader
+        type={[
+          'CREATE_BOOKING_INTENT',
+          `GET_TRAINER_LISTING_${NEARBY_TRAINERS_MAP_ID}`,
+        ]}
+      />
     </Container>
   );
 };
