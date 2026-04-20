@@ -95,7 +95,13 @@ function regionForMarkersAndSession(
   };
 }
 
-const Map = ({ latitude, longitude, markers = [], fitBottomPadding = 100 }) => {
+const Map = ({
+  latitude,
+  longitude,
+  markers = [],
+  fitBottomPadding = 100,
+  onMarkerPress,
+}) => {
   const validMarkers = useMemo(
     () => markers.filter(m => isValidCoord(m.latitude, m.longitude)),
     [markers],
@@ -153,7 +159,8 @@ const Map = ({ latitude, longitude, markers = [], fitBottomPadding = 100 }) => {
               longitude: m.longitude,
             }}
             anchor={{ x: 0.5, y: 1 }}
-            tracksViewChanges={false}>
+            tracksViewChanges={false}
+            onPress={() => onMarkerPress?.(m)}>
             <View style={Styles.markerStack}>
               <View style={Styles.markerLabel}>
                 <Text style={Styles.markerLabelText} numberOfLines={2}>

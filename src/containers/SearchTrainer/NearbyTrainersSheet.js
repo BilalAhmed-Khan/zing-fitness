@@ -8,6 +8,7 @@ import {
   Dimensions,
   Platform,
   StatusBar,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -17,7 +18,8 @@ import { Colors, Metrics } from '../../theme';
 const { height: SCREEN_H } = Dimensions.get('window');
 
 /**
- * Google-style bottom sheet: drag handle / header to expand (near full screen) or collapse.
+ * Google-style bottom sheet: drag vertically from the sheet (not only the handle) when the
+ * trainer list is scrolled to the top (pull down to collapse) or when collapsed (pull up to expand).
  * @param {'collapsed' | 'expanded'} snap - controlled snap from parent is optional; we notify via onSnap.
  */
 const NearbyTrainersSheet = ({
@@ -27,6 +29,10 @@ const NearbyTrainersSheet = ({
   renderItem,
   keyExtractor,
   onSnap,
+  mapSelectedTrainerId = null,
+  markersOnMapCount = 0,
+  sheetHeaderTitle,
+  onClearMapSelection,
 }) => {
   const insets = useSafeAreaInsets();
   const expandedTop = useMemo(() => {
@@ -41,6 +47,7 @@ const NearbyTrainersSheet = ({
   const topRef = useRef(collapsedTop);
   const gestureStartTop = useRef(collapsedTop);
   const snapRef = useRef('collapsed');
+  const listScrollY = useRef(0);
 
   useEffect(() => {
     const sub = topAnim.addListener(({ value }) => {
@@ -91,12 +98,32 @@ const NearbyTrainersSheet = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initial map padding only
   }, []);
 
+  const sheetShouldHandleMove = useCallback((_, g) => {
+    if (Math.abs(g.dy) < 8) {
+      return false;
+    }
+    if (Math.abs(g.dy) < Math.abs(g.dx)) {
+      return false;
+    }
+    const scrollY = listScrollY.current;
+    if (g.dy > 0) {
+      if (scrollY <= 0.5) {
+        return true;
+      }
+      return false;
+    }
+    if (g.dy < 0 && snapRef.current === 'collapsed') {
+      return true;
+    }
+    return false;
+  }, []);
+
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_, g) =>
-          Math.abs(g.dy) > 6 || Math.abs(g.dx) > 6,
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: sheetShouldHandleMove,
+        onMoveShouldSetPanResponderCapture: sheetShouldHandleMove,
         onPanResponderGrant: () => {
           gestureStartTop.current = topRef.current;
         },
@@ -125,21 +152,46 @@ const NearbyTrainersSheet = ({
           springTo(snapTo);
         },
       }),
-    [collapsedTop, expandedTop, springTo, toggleFromCurrent, topAnim],
+    [
+      collapsedTop,
+      expandedTop,
+      sheetShouldHandleMove,
+      springTo,
+      toggleFromCurrent,
+      topAnim,
+    ],
   );
 
   const count = nearbyTrainers?.length ?? 0;
+  const headerTitle =
+    sheetHeaderTitle ??
+    `Nearby trainers${count > 0 ? ` (${count})` : ''}`;
+
+  const emptyHint =
+    markersOnMapCount > 0
+      ? 'Tap a trainer pin on the map to see their details.'
+      : 'No trainers found near this location.';
+
+  const listFooter =
+    onClearMapSelection && mapSelectedTrainerId ? (
+      <Pressable
+        style={Styles.sheetMapSelectionClear}
+        onPress={onClearMapSelection}>
+        <Text style={Styles.sheetMapSelectionClearText}>Clear selection</Text>
+      </Pressable>
+    ) : null;
 
   return (
     <Animated.View
-      style={[Styles.bottomSheet, Styles.bottomSheetWrap, { top: topAnim }]}>
-      <View style={Styles.sheetDragZone} {...panResponder.panHandlers}>
-        <View style={Styles.sheetDragInner}>
-          <View style={Styles.bottomSheetHandle} />
-          <Text style={Styles.bottomSheetTitle}>
-            {`Nearby trainers${count > 0 ? ` (${count})` : ''}`}
-          </Text>
-        </View>
+      style={[Styles.bottomSheet, Styles.bottomSheetWrap, { top: topAnim }]}
+      {...panResponder.panHandlers}>
+      <View style={Styles.sheetDragZone}>
+        <Pressable onPress={toggleFromCurrent}>
+          <View style={Styles.sheetDragInner}>
+            <View style={Styles.bottomSheetHandle} />
+            <Text style={Styles.bottomSheetTitle}>{headerTitle}</Text>
+          </View>
+        </Pressable>
       </View>
 
       <View style={Styles.sheetBody}>
@@ -152,9 +204,7 @@ const NearbyTrainersSheet = ({
           </View>
         ) : null}
         {!loading && count === 0 ? (
-          <Text style={Styles.bottomSheetEmpty}>
-            No trainers found near this location.
-          </Text>
+          <Text style={Styles.bottomSheetEmpty}>{emptyHint}</Text>
         ) : null}
         {count > 0 ? (
           <FlatList
@@ -165,6 +215,14 @@ const NearbyTrainersSheet = ({
             contentContainerStyle={Styles.bottomSheetList}
             showsVerticalScrollIndicator
             bounces
+            scrollEventThrottle={16}
+            ListFooterComponent={listFooter}
+            onScroll={e => {
+              listScrollY.current = Math.max(
+                0,
+                e.nativeEvent.contentOffset.y,
+              );
+            }}
           />
         ) : null}
       </View>

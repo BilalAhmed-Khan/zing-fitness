@@ -299,4 +299,14 @@ export const Styles = ScaledSheet.create({
     color: Colors.primary,
     marginTop: '6@ms',
   },
+  sheetMapSelectionClear: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: Metrics.smallMargin,
+    paddingVertical: '6@ms',
+  },
+  sheetMapSelectionClearText: {
+    fontFamily: Fonts.medium,
+    fontSize: '12@ms',
+    color: Colors.grey2,
+  },
 });

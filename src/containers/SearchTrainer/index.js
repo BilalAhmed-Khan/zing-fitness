@@ -40,6 +40,42 @@ import { getRequestFlag } from '../../ducks/requestFlags';
 
 const NEARBY_TRAINERS_MAP_ID = 'SEARCH_TRAINER_NEARBY';
 
+/** Extra map pins + sheet rows for local testing (set true to always include demo trainers). */
+const ADD_DEMO_TRAINER_PINS = __DEV__;
+
+const buildDemoTrainersNearSession = (lat, lng) => {
+  if (!ADD_DEMO_TRAINER_PINS || lat === -1 || lng === -1) {
+    return [];
+  }
+  const pin = (i, dLat, dLng, fullName, price, blurb) => ({
+    id: `__demo_trainer__${i}`,
+    fullName,
+    firstName: fullName.split(' ')[0],
+    lastName: fullName.split(' ').slice(1).join(' ') || 'Coach',
+    image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=200',
+    currentLatitude: lat + dLat,
+    currentLongitude: lng + dLng,
+    yearsOfExperience: 3 + i,
+    coverageMiles: 8 + i * 2,
+    address: 'Demo location near your search',
+    phone: `(555) 010-000${i + 1}`,
+    isOnline: i % 2 === 0,
+    trainerCategories: [],
+    session: {
+      price: String(price),
+      duration: '30',
+      description: blurb,
+    },
+  });
+
+  return [
+    pin(0, 0.02, 0.015, 'Alex Rivera', 55, 'HIIT & strength (demo)'),
+    pin(1, -0.018, 0.012, 'Jordan Lee', 60, 'Mobility & recovery (demo)'),
+    pin(2, 0.008, -0.022, 'Sam Morgan', 45, 'Running coach (demo)'),
+    pin(3, -0.012, -0.014, 'Riley Chen', 70, 'Nutrition + training (demo)'),
+  ];
+};
+
 const trainers = [
   {
     trainerName: 'Rodney Artichoke',
@@ -73,6 +109,7 @@ const SearchTrainer = ({ route }) => {
   );
   const dispatch = useDispatch();
   const [sheetSnap, setSheetSnap] = useState('collapsed');
+  const [mapSelectedTrainerId, setMapSelectedTrainerId] = useState(null);
   console.log('trainerFlag', trainerFlag, bookingData);
 
   const onTrainerSheetSnap = useCallback(phase => {
@@ -82,8 +119,18 @@ const SearchTrainer = ({ route }) => {
   const sessionLat = UserUtill.lat(payloadData);
   const sessionLng = UserUtill.long(payloadData);
 
+  const demoTrainers = useMemo(
+    () => buildDemoTrainersNearSession(sessionLat, sessionLng),
+    [sessionLat, sessionLng],
+  );
+
+  const displayTrainers = useMemo(() => {
+    const api = Array.isArray(nearbyTrainers) ? nearbyTrainers : [];
+    return [...demoTrainers, ...api];
+  }, [demoTrainers, nearbyTrainers]);
+
   const trainerMarkers = useMemo(() => {
-    if (!Array.isArray(nearbyTrainers) || nearbyTrainers.length === 0) {
+    if (!Array.isArray(displayTrainers) || displayTrainers.length === 0) {
       return [];
     }
     const trainerDisplayName = t => {
@@ -96,7 +143,7 @@ const SearchTrainer = ({ route }) => {
         .map(s => String(s).trim());
       return parts.join(' ').trim();
     };
-    return nearbyTrainers
+    return displayTrainers
       .map(t => {
         const rawLat = t.currentLatitude ?? t.location?.cordinates?.[1];
         const rawLng = t.currentLongitude ?? t.location?.cordinates?.[0];
@@ -120,7 +167,42 @@ const SearchTrainer = ({ route }) => {
           m.latitude !== -1 &&
           m.longitude !== -1,
       );
-  }, [nearbyTrainers]);
+  }, [displayTrainers]);
+
+  const mapSelectedTrainer = useMemo(() => {
+    if (!mapSelectedTrainerId) {
+      return null;
+    }
+    return (
+      displayTrainers.find(
+        t => String(UserUtill.id(t) || '') === String(mapSelectedTrainerId),
+      ) ?? null
+    );
+  }, [displayTrainers, mapSelectedTrainerId]);
+
+  const sheetTrainersForList = useMemo(
+    () => (mapSelectedTrainer ? [mapSelectedTrainer] : []),
+    [mapSelectedTrainer],
+  );
+
+  const sheetHeaderTitle = useMemo(() => {
+    if (mapSelectedTrainer) {
+      const n =
+        UserUtill.name(mapSelectedTrainer) ||
+        [mapSelectedTrainer.firstName, mapSelectedTrainer.lastName]
+          .filter(Boolean)
+          .join(' ');
+      return (n && String(n).trim()) || 'Trainer';
+    }
+    return 'Nearby trainers';
+  }, [mapSelectedTrainer]);
+
+  const onTrainerMarkerPress = useCallback(marker => {
+    if (marker?.id == null) {
+      return;
+    }
+    setMapSelectedTrainerId(String(marker.id));
+  }, []);
 
   useEffect(() => {
     if (sessionLat === -1 || sessionLng === -1) {
@@ -153,15 +235,19 @@ const SearchTrainer = ({ route }) => {
     if (sheetSnap === 'expanded') {
       return 72;
     }
-    if (nearbyTrainers.length > 0) {
+    if (trainerMarkers.length > 0) {
       return 280;
     }
     return listingRequest.loading ? 170 : 165;
-  }, [trainerFlag, nearbyTrainers.length, listingRequest.loading, sheetSnap]);
+  }, [trainerFlag, trainerMarkers.length, listingRequest.loading, sheetSnap]);
 
   const goTrainerProfile = item => {
     const id = UserUtill.id(item);
     if (!id) {
+      return;
+    }
+    if (String(id).startsWith('__demo_trainer__')) {
+      Util.showMessage('Demo trainer — open a real profile from the API list.');
       return;
     }
     NavigationService.navigate('UserTrainerProfile', { id });
@@ -564,19 +650,29 @@ const SearchTrainer = ({ route }) => {
           longitude={UserUtill.long(payloadData)}
           markers={trainerMarkers}
           fitBottomPadding={mapFitBottomPadding}
+          onMarkerPress={onTrainerMarkerPress}
         />
         <SearchBox />
         {trainerFlag === '' ? mapContent() : null}
         {trainerFlag === '' ? (
           <NearbyTrainersSheet
             Styles={Styles}
-            nearbyTrainers={nearbyTrainers}
+            nearbyTrainers={sheetTrainersForList}
             loading={listingRequest.loading}
             renderItem={renderSheetTrainerRow}
             keyExtractor={item =>
-              String(UserUtill.id(item) || item.emailAddress || '')
+              String(
+                UserUtill.id(item) ||
+                  item.emailAddress ||
+                  item.id ||
+                  '',
+              )
             }
             onSnap={onTrainerSheetSnap}
+            mapSelectedTrainerId={mapSelectedTrainerId}
+            markersOnMapCount={trainerMarkers.length}
+            sheetHeaderTitle={sheetHeaderTitle}
+            onClearMapSelection={() => setMapSelectedTrainerId(null)}
           />
         ) : null}
         {trainerFlag !== '' ? trainerView() : null}

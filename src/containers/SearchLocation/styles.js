@@ -37,7 +37,7 @@ export const Styles = ScaledSheet.create({
     position: 'absolute',
     // alignItems: 'center',
     top: 15,
-    right: 10,
+    right: 0,
     // bottom: 15,
     left: 10,
     alignItems: 'center',
