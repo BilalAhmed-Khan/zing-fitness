@@ -166,7 +166,8 @@ export const COORDINATES_DELTA = {
 };
 
 export const GOOGLE_SEARCH = {
-  key: 'AIzaSyBAakQNuAxHLhkMnPTMDPBgryzGgu7TI5I',
+  // key: 'AIzaSyBAakQNuAxHLhkMnPTMDPBgryzGgu7TI5I',
+  key: 'AIzaSyBSiueaVXL4II2dqkqI9obmkEqFIwNlBHI',
   language: 'en',
   type: 'address',
   components: 'country:us',

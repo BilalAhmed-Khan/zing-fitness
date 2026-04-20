@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, View } from 'react-native';
+import { Image, Keyboard, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 
 import {
@@ -13,7 +13,7 @@ import {
 
 import { Styles } from './styles';
 import { Colors, Images, Metrics } from '../../theme';
-import { GeocodeUtil, LocationUtil, NavigationService } from '../../utils';
+import { GeocodeUtil, LocationUtil, NavigationService, Util } from '../../utils';
 import { COORDINATES_DELTA, GOOGLE_SEARCH } from '../../config/Constants';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 import MapStyles from '../../config/MapStyles.json';
@@ -27,20 +27,130 @@ const initialRegion = {
   ...COORDINATES_DELTA,
 };
 
+const isValidCoordPair = (lat, lng) =>
+  typeof lat === 'number' &&
+  typeof lng === 'number' &&
+  !Number.isNaN(lat) &&
+  !Number.isNaN(lng) &&
+  lat !== -1 &&
+  lng !== -1;
+
+const labelsRoughlyMatch = (a, b) => {
+  const x = (a ?? '').trim().toLowerCase();
+  const y = (b ?? '').trim().toLowerCase();
+  if (!x || !y) {
+    return true;
+  }
+  if (x === y || x.includes(y) || y.includes(x)) {
+    return true;
+  }
+  const words = s =>
+    new Set(
+      s
+        .split(/[\s,.]+/)
+        .map(w => w.trim())
+        .filter(w => w.length > 2),
+    );
+  const wx = words(x);
+  const wy = words(y);
+  let overlap = 0;
+  wx.forEach(w => {
+    if (wy.has(w)) {
+      overlap += 1;
+    }
+  });
+  return overlap >= 1;
+};
+
 const SearchLocation = ({ route }) => {
   const onSaveLocation = route?.params?.onSaveLocation ?? undefined;
   const [isLoading, setLoading] = useState(true);
   const [inputText, setInputText] = useState('');
   const [address, setAddress] = useState('');
   const [currentLocation, setCurrentLocation] = useState(initialRegion);
+  const [mapCenter, setMapCenter] = useState(null);
   const mapRef = useRef();
 
-  const _onPress = () => {
-    const cordinates = [currentLocation.longitude, currentLocation.latitude];
-    const location = address?.address;
-    console.log('address', address);
-    console.log('currentLocation', currentLocation);
-    onSaveLocation?.(location, cordinates);
+  const _onPress = async () => {
+    const textLabel = (
+      inputText?.trim() ||
+      (typeof address === 'object' && address?.address ? address.address : '') ||
+      ''
+    ).trim();
+
+    if (
+      typeof address === 'object' &&
+      address != null &&
+      isValidCoordPair(address.lat, address.lng)
+    ) {
+      const resolvedLabel = (address.address || '').trim();
+      if (labelsRoughlyMatch(textLabel, resolvedLabel)) {
+        onSaveLocation?.(textLabel || resolvedLabel || 'Selected location', [
+          address.lng,
+          address.lat,
+        ]);
+        return;
+      }
+    }
+
+    let lat;
+    let lng;
+
+    if (
+      mapCenter != null &&
+      isValidCoordPair(mapCenter.latitude, mapCenter.longitude)
+    ) {
+      lat = mapCenter.latitude;
+      lng = mapCenter.longitude;
+    }
+
+    if (mapRef.current?.getCamera) {
+      try {
+        const cam = await mapRef.current.getCamera();
+        if (cam?.center && isValidCoordPair(cam.center.latitude, cam.center.longitude)) {
+          lat = cam.center.latitude;
+          lng = cam.center.longitude;
+        }
+      } catch (_) {
+        /* map may not be ready */
+      }
+    }
+
+    if (!isValidCoordPair(lat, lng)) {
+      lat = currentLocation.latitude;
+      lng = currentLocation.longitude;
+    }
+
+    if (isValidCoordPair(lat, lng)) {
+      const label =
+        textLabel ||
+        (typeof address === 'object' && address?.address) ||
+        'Selected location';
+      onSaveLocation?.(label, [lng, lat]);
+      return;
+    }
+
+    if (!textLabel) {
+      Util.showMessage('Please enter a location');
+      return;
+    }
+
+    GeocodeUtil.getAddressObject(textLabel, (result, isSuccess) => {
+      if (isSuccess) {
+        onSaveLocation?.(result.address, [result.lng, result.lat]);
+        return;
+      }
+      if (
+        mapCenter != null &&
+        isValidCoordPair(mapCenter.latitude, mapCenter.longitude)
+      ) {
+        onSaveLocation?.(textLabel, [mapCenter.longitude, mapCenter.latitude]);
+        return;
+      }
+      Util.showMessage(
+        typeof result === 'string' ? result : 'Location not found',
+      );
+    });
   };
 
   useEffect(() => {
@@ -96,6 +206,35 @@ const SearchLocation = ({ route }) => {
     setInputText(info?.address);
     setAddress(info);
   };
+  const applyResolvedPlace = result => {
+    setCurrentLocation({
+      latitude: result.lat,
+      longitude: result.lng,
+      ...COORDINATES_DELTA,
+    });
+    setCoordinateMap({
+      latitude: result.lat,
+      longitude: result.lng,
+    });
+    saveAndDisplayAddress(result);
+  };
+  const searchFromQuery = rawQuery => {
+    const trimmed = (rawQuery ?? '').trim();
+    if (!trimmed) {
+      Util.showMessage('Please enter a location');
+      return;
+    }
+    Keyboard.dismiss();
+    GeocodeUtil.getAddressObject(trimmed, (result, isSuccess) => {
+      if (isSuccess) {
+        applyResolvedPlace(result);
+      } else {
+        Util.showMessage(
+          typeof result === 'string' ? result : 'Location not found',
+        );
+      }
+    });
+  };
   const onSelectAutoSuggest = (data, details = null) => {
     console.log(details, data);
     setCoordinateMap({
@@ -132,6 +271,12 @@ const SearchLocation = ({ route }) => {
               style={Styles.map}
               ref={mapRef}
               customMapStyle={MapStyles}
+              onRegionChangeComplete={region => {
+                setMapCenter({
+                  latitude: region.latitude,
+                  longitude: region.longitude,
+                });
+              }}
             />
           )}
           {/* <MapContent /> */}
@@ -148,6 +293,7 @@ const SearchLocation = ({ route }) => {
                 returnKeyType: 'search',
                 value: inputText,
                 onChangeText: onSearch,
+                onSubmitEditing: () => searchFromQuery(inputText),
               }}
               fetchDetails={true}
               styles={Styles.searchInputStyle}
