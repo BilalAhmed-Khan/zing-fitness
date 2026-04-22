@@ -1,7 +1,7 @@
 require_relative '../node_modules/react-native/scripts/react_native_pods'
 require_relative '../node_modules/@react-native-community/cli-platform-ios/native_modules'
 
-platform :ios, '13'
+platform :ios, '16.6'
 
 target 'fitnessApp' do
   # React Native Maps dependencies
@@ -46,12 +46,29 @@ target 'fitnessApp' do
 #  end
   post_install do |installer|
     installer.pods_project.targets.each do |target|
-      if target.respond_to?(:product_type) and target.product_type == "com.apple.product-type.bundle"
-        target.build_configurations.each do |config|
-              config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
-             config.build_settings[‘IPHONEOS_DEPLOYMENT_TARGET’] = ‘12.0’
-
+      target.build_configurations.each do |config|
+        config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++14'
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.6'
+        definitions = config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
+        definitions = [definitions] unless definitions.is_a?(Array)
+        if target.name == 'RCT-Folly' && !definitions.include?('FOLLY_HAVE_CLOCK_GETTIME=1')
+          definitions << 'FOLLY_HAVE_CLOCK_GETTIME=1'
         end
+        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = definitions
+
+        if target.respond_to?(:product_type) and target.product_type == "com.apple.product-type.bundle"
+          config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+        end
+      end
+    end
+
+    flipper_transport_types = File.join(__dir__, 'Pods/Flipper/xplat/Flipper/FlipperTransportTypes.h')
+    if File.exist?(flipper_transport_types)
+      content = File.read(flipper_transport_types)
+      unless content.include?('#include <functional>')
+        File.chmod(0o644, flipper_transport_types)
+        patched = content.sub("#include <string>", "#include <functional>\n#include <string>")
+        File.write(flipper_transport_types, patched)
       end
     end
   end
