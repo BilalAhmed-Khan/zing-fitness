@@ -31,4 +31,7 @@ export const Styles = ScaledSheet.create({
   searchInput: {
     marginVertical: 0,
   },
+  searchAddressText: {
+    flex: 1,
+  },
 });

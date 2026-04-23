@@ -189,7 +189,8 @@ export const PAYMENT_TYPE = {
   STRIPE: 'STRIPE',
 };
 
-export const GOOGLE_API_KEY = 'AIzaSyBAakQNuAxHLhkMnPTMDPBgryzGgu7TI5I';
+// export const GOOGLE_API_KEY = 'AIzaSyBAakQNuAxHLhkMnPTMDPBgryzGgu7TI5I';
+export const GOOGLE_API_KEY = 'AIzaSyBSiueaVXL4II2dqkqI9obmkEqFIwNlBHI'
 
 export const CLIENT_SECRET_KEY =
   'pk_test_51K8AlYJxTbhFoR58UFRSnyThxQ6C7Bj1F13cIKOWLxWakGXzvQUoN4K8LLA3IP00R53rL4NTqz0e7rfUThZ4ZLYw00c5WBTc1w';

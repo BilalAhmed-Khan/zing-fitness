@@ -44,6 +44,43 @@ const initialRegion = {
   ...COORDINATES_DELTA,
 };
 
+/** Geo [lng, lat] from geocode object, or map center when address is still a plain string. */
+const resolveProfileCoordinates = (address, currentLocation) => {
+  if (
+    address &&
+    typeof address === 'object' &&
+    typeof address.lat === 'number' &&
+    typeof address.lng === 'number' &&
+    !Number.isNaN(address.lat) &&
+    !Number.isNaN(address.lng)
+  ) {
+    return [address.lng, address.lat];
+  }
+  const lat = currentLocation?.latitude;
+  const lng = currentLocation?.longitude;
+  if (
+    typeof lat === 'number' &&
+    typeof lng === 'number' &&
+    !Number.isNaN(lat) &&
+    !Number.isNaN(lng) &&
+    lat !== -1 &&
+    lng !== -1
+  ) {
+    return [lng, lat];
+  }
+  return null;
+};
+
+const profileAddressString = address => {
+  if (address && typeof address === 'object') {
+    return address.address ?? '';
+  }
+  if (typeof address === 'string') {
+    return address;
+  }
+  return '';
+};
+
 const MilesSlider = ({ value, onChange }) => {
   return (
     <View style={Styles.milesSlider}>
@@ -116,9 +153,13 @@ const TrainerServiceAreas = ({ route }) => {
       return;
     }
 
-    const cordinates = [address.lng, address.lat];
+    const cordinates = resolveProfileCoordinates(address, currentLocation);
+    if (!cordinates) {
+      Util.showMessage('Please select a valid location');
+      return;
+    }
     payloadApi = {
-      address: address?.address,
+      address: profileAddressString(address),
       coverageMiles: miles,
       // location: { cordinates, },
     };
@@ -289,9 +330,13 @@ const TrainerServiceAreas = ({ route }) => {
   const submit = formObj.handleSubmit(values => {
     // console.log('values', values);
     values.timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const cordinates = [address.lng, address.lat];
+    const cordinates = resolveProfileCoordinates(address, currentLocation);
+    if (!cordinates) {
+      Util.showMessage('Please select a valid location');
+      return;
+    }
     const payloadApi = {
-      address: address?.address,
+      address: profileAddressString(address),
       timeZone: values.timeZone,
       location: { cordinates },
     };
