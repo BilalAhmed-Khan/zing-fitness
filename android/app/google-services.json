@@ -45,6 +45,65 @@
             {
               "client_id": "525587273234-3grqbi09c4iefn5ov45k9pujk77t3t0e.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "525587273234-lbbd0l7uil24i84l7vi79qth8m1vjjln.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.zingFitness.app"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:525587273234:android:5b9666a3530ecc53352acb",
+        "android_client_info": {
+          "package_name": "com.zingfitness.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "525587273234-92f464o2ovem9jc9illqt40q2rhvmdsk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.zingfitness.app",
+            "certificate_hash": "a421f8cadf3a12d253f91fe1b08253b2584023f3"
+          }
+        },
+        {
+          "client_id": "525587273234-9uqm6oit9ol04um5bgdstur8abkoljh7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.zingfitness.app",
+            "certificate_hash": "b03d2c062fb012de03a50ff0f3b489b3dc2415a5"
+          }
+        },
+        {
+          "client_id": "525587273234-3grqbi09c4iefn5ov45k9pujk77t3t0e.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDdvGh8FbegCzM3jcLrr7TldOpZO5mjyVY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "525587273234-3grqbi09c4iefn5ov45k9pujk77t3t0e.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "525587273234-lbbd0l7uil24i84l7vi79qth8m1vjjln.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.zingFitness.app"
+              }
             }
           ]
         }

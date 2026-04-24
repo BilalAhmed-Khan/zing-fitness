@@ -1,4 +1,4 @@
-package com.zingFitness.app;
+package com.zingfitness.app;
 
 import com.facebook.react.ReactActivity;
 import org.devio.rn.splashscreen.SplashScreen;

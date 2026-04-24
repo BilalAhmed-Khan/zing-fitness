@@ -133,6 +133,10 @@ android {
 
     compileSdkVersion rootProject.ext.compileSdkVersion
     namespace "com.zingfitness.app"
+    adbOptions {
+        // Physical devices can be slow to respond during APK push/install.
+        timeOutInMs 10 * 60 * 1000
+    }
 
     defaultConfig {
 //        applicationId "com.fitness.app"
