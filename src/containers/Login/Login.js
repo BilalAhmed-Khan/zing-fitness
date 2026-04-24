@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Pressable, Image, ScrollView } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { jwtDecode } from 'jwt-decode';
 
 import {
   Container,
@@ -17,6 +18,49 @@ import { getUserRole, setUserRole } from '../../ducks/general';
 import { NavigationService, SocialLoginUtill, Util } from '../../utils';
 import { useHookForm, ValidationSchema } from '../../utils/ValidationUtil';
 import { appleToken, authLogin, externalLogin } from '../../ducks/auth';
+
+/** Apple / RN sometimes yields a non-string token; jwt-decode also rejects odd base64 edge cases. */
+function parseAppleIdentityTokenPayload(identityToken) {
+  const token =
+    typeof identityToken === 'string'
+      ? identityToken.trim()
+      : identityToken != null
+      ? String(identityToken).trim()
+      : '';
+  if (!token || token.split('.').length < 2) {
+    return null;
+  }
+  try {
+    const parsed = jwtDecode(token);
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+  } catch (_) {
+    /* fall through */
+  }
+  try {
+    const segment = token.split('.')[1];
+    if (!segment) {
+      return null;
+    }
+    let base64 = segment.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = base64.length % 4;
+    if (pad === 2) {
+      base64 += '==';
+    } else if (pad === 3) {
+      base64 += '=';
+    } else if (pad === 1) {
+      return null;
+    }
+    const root = typeof global !== 'undefined' ? global : {};
+    if (typeof root.atob !== 'function') {
+      return null;
+    }
+    return JSON.parse(root.atob(base64));
+  } catch (_) {
+    return null;
+  }
+}
 
 const Login = () => {
   const isTrainer = useSelector(getUserRole);
@@ -89,17 +133,70 @@ const Login = () => {
     </View>
   );
 
-  const appleDecodeToken = identityToken => {
+  const onAppleSignIn = appleCredential => {
+    let identityToken;
+    let appleUserId;
+    let emailFromApple;
+    let firstName = '';
+    let lastName = '';
+
+    if (typeof appleCredential === 'string') {
+      identityToken = appleCredential;
+    } else if (appleCredential && typeof appleCredential === 'object') {
+      ({
+        identityToken,
+        appleUserId,
+        email: emailFromApple,
+        firstName = '',
+        lastName = '',
+      } = appleCredential);
+    }
+
+    const idToken =
+      typeof identityToken === 'string'
+        ? identityToken.trim()
+        : identityToken != null
+        ? String(identityToken).trim()
+        : '';
+
+    if (!idToken) {
+      return;
+    }
+
+    const runSocialLogin = decoded => {
+      const platformId = decoded?.sub || appleUserId;
+      const emailAddress =
+        (emailFromApple || decoded?.email || '').trim() || '';
+      if (!platformId || !emailAddress) {
+        Util.showMessage(
+          'Could not read your Apple account id or email. Sign in again and choose Share My Email, or use email login.',
+        );
+        return;
+      }
+      externalLoginApi({
+        platformId,
+        emailAddress,
+        firstName: firstName || '',
+        lastName: lastName || '',
+        idToken,
+      });
+    };
+
+    const decodedLocal = parseAppleIdentityTokenPayload(idToken);
+    if (decodedLocal) {
+      runSocialLogin(decodedLocal);
+      return;
+    }
+
     dispatch(
       appleToken.request({
-        payloadApi: { token: identityToken },
-        cb: decoded => {
-          console.log(decoded);
-          const applePayload = {
-            platformId: decoded.nonce,
-            emailAddress: decoded.email,
-          };
-          externalLoginApi(applePayload);
+        payloadApi: { token: idToken },
+        cb: serverPayload => {
+          const s = serverPayload?.data ?? serverPayload ?? {};
+          runSocialLogin({
+            sub: s.sub ?? s.subject ?? s.userId,
+            email: s.email ?? s.emailAddress,
+          });
         },
       }),
     );
@@ -163,7 +260,7 @@ const Login = () => {
               style={Styles.appleButton}
               titleStyle={Styles.appleTextStyle}
               onPress={() => {
-                SocialLoginUtill.appleLogin(appleDecodeToken);
+                SocialLoginUtill.appleLogin(onAppleSignIn);
               }}
             />
           )}

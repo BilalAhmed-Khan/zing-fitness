@@ -127,31 +127,38 @@ async function facebookLogin(succusCallback) {
   }
 }
 async function appleLogin(succusCallback) {
-  const appleAuthRequestResponse = await appleAuth.performRequest({
-    requestedOperation: appleAuth.Operation.LOGIN,
-    requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
-  });
-  // const credentialState = await appleAuth.getCredentialStateForUser(
-  //   appleAuthRequestResponse.user
-  // );
-  // token here
-  const { identityToken, nonce } = appleAuthRequestResponse;
-  // const appleCredential = auth.AppleAuthProvider.credential(
-  //   identityToken,
-  //   nonce,
-  // );
-  // Alert.alert(identityToken);
-  // const signIn = auth().signInWithCredential(appleCredential);
-  // const decoded = jwtDecode(identityToken);
-  console.log('decoded ==>', identityToken);
-  succusCallback?.(identityToken);
-  // Alert.alert(decoded);
-  // const payloadApi = {
-  //   platformId: decoded.nonce,
-  //   emailAddress: decoded.email,
-  // };
-
-  // console.log(appleAuthRequestResponse.identityToken, "credentialState");
+  try {
+    const appleAuthRequestResponse = await appleAuth.performRequest({
+      requestedOperation: appleAuth.Operation.LOGIN,
+      requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
+    });
+    const { identityToken, email, fullName, user } = appleAuthRequestResponse;
+    if (!identityToken) {
+      Alert.alert(
+        'Apple Sign-In',
+        'Apple did not return a sign-in token. Please try again.',
+      );
+      return;
+    }
+    const firstName = fullName?.givenName ?? '';
+    const lastName = fullName?.familyName ?? '';
+    succusCallback?.({
+      identityToken,
+      appleUserId: user,
+      email: email ?? null,
+      firstName,
+      lastName,
+    });
+  } catch (error) {
+    if (error?.code === '1001' || error?.code === 1001) {
+      return;
+    }
+    console.warn('Apple Sign-In', error);
+    Alert.alert(
+      'Apple Sign-In',
+      error?.message || 'Apple sign-in failed. Please try again.',
+    );
+  }
 }
 
 export default {

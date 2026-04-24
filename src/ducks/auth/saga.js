@@ -625,7 +625,8 @@ function* watchAppleToken() {
     try {
       const response = yield call(callRequest, API_APPLE_TOKEN, payloadApi);
       yield put(appleToken.success({}));
-      cb?.(response?.data);
+      const applePayload = response?.data ?? response;
+      cb?.(applePayload);
     } catch (error) {
       yield put(appleToken.failure({ errorMessage: error.message }));
       Util.showMessage(error.message);
