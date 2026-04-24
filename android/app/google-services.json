@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:525587273234:android:403adb5f23e51e23352acb",
         "android_client_info": {
-          "package_name": "com.zingFitness.app"
+          "package_name": "com.zingfitness.app"
         }
       },
       "oauth_client": [
@@ -17,7 +17,7 @@
           "client_id": "525587273234-03cemgsemmc7oh0t4e5t7hfq8lpr8q22.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.zingFitness.app",
+            "package_name": "com.zingfitness.app",
             "certificate_hash": "b03d2c062fb012de03a50ff0f3b489b3dc2415a5"
           }
         },
@@ -25,7 +25,7 @@
           "client_id": "525587273234-21e8t6ko1erlnisa5687gn1l5m0urt29.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.zingFitness.app",
+            "package_name": "com.zingfitness.app",
             "certificate_hash": "a421f8cadf3a12d253f91fe1b08253b2584023f3"
           }
         },

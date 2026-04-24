@@ -112,7 +112,7 @@ async function facebookLogin(succusCallback) {
     if (!data?.accessToken) {
       Alert.alert(
         'Facebook',
-        'Could not read an access token. Check Facebook app settings (package name com.zingFitness.app and key hashes).',
+        'Could not read an access token. Check Facebook app settings (package name com.zingfitness.app and key hashes).',
       );
       return;
     }
