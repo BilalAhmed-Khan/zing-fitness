@@ -254,6 +254,7 @@ const Login = () => {
           <NeedanAccount />
           <OR />
           {Util.isPlatformIOS() && (
+            <>
             <Button
               title="APPLE"
               largeButton
@@ -263,6 +264,16 @@ const Login = () => {
                 SocialLoginUtill.appleLogin(onAppleSignIn);
               }}
             />
+            <Button
+            title="FACEBOOK"
+            largeButton
+            style={Styles.facebookButton}
+            onPress={() => {
+              SocialLoginUtill.facebookLogin(externalLoginApi);
+            }}
+          />
+            </>
+            
           )}
           <Button
             title="GOOGLE"
