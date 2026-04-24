@@ -3,7 +3,6 @@ import { max } from "lodash";
 import Geocoder from "react-native-geocoding";
 
 import { GOOGLE_API_KEY } from "../config/Constants";
-import DataHandler from "./DataHandler";
 
 function initLibrary() {
   Geocoder.init(GOOGLE_API_KEY);
@@ -55,7 +54,7 @@ function getAddressObject(params, callback) {
 
       console.log("error response", error);
 
-      const errorMessage = getErrorMessage();
+      const errorMessage = getErrorMessage(error);
       callback(errorMessage, false);
     });
 }
@@ -93,11 +92,16 @@ function getFormattedAddressFromResult(result) {
   return formattedAddress;
 }
 
-function getErrorMessage() {
-  const errorMessage = DataHandler.getIsInternetConnected()
-    ? "Something Went Wrong"
-    : "Network Not Available";
-  return errorMessage;
+function getErrorMessage(error) {
+  const raw =
+    error &&
+    (error.message ||
+      (typeof error === "string" ? error : "") ||
+      (error.error_message ? String(error.error_message) : ""));
+  if (raw) {
+    return String(raw);
+  }
+  return "Could not look up this location. Check your connection and try again.";
 }
 
 export default {

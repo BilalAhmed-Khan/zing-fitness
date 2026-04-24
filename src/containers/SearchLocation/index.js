@@ -1,5 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, Keyboard, View } from 'react-native';
+import {
+  Image,
+  InteractionManager,
+  Keyboard,
+  Platform,
+  View,
+} from 'react-native';
 import Slider from '@react-native-community/slider';
 
 import {
@@ -24,6 +30,13 @@ import { createSession } from '../../ducks/auth';
 const initialRegion = {
   latitude: -1,
   longitude: -1,
+  ...COORDINATES_DELTA,
+};
+
+/** Map default before GPS resolves (SF — avoids iOS showing an empty/wrong camera). */
+const DEFAULT_MAP_REGION = {
+  latitude: 37.78825,
+  longitude: -122.4324,
   ...COORDINATES_DELTA,
 };
 
@@ -165,36 +178,78 @@ const SearchLocation = ({ route }) => {
     }
   };
   useEffect(() => {
-    if (!isLoading) {
-      LocationUtil.getCurrentLocation(
-        locationobj => {
-          console.log('locationobj', locationobj);
-          GeocodeUtil.getAddressObject(
-            {
-              lat: locationobj.lat,
-              lng: locationobj.lng,
-            },
-            (result, isSuccess) => {
-              if (isSuccess) {
-                saveAndDisplayAddress(result);
-              }
-            },
-          );
-          setCurrentLocation({
-            latitude: locationobj.lat,
-            longitude: locationobj.lng,
-            ...COORDINATES_DELTA,
-          });
-          setCoordinateMap({
-            latitude: locationobj.lat,
-            longitude: locationobj.lng,
-          });
-        },
-        false,
-        false,
-      );
+    if (isLoading) {
+      return;
     }
-  }, [mapRef.current, isLoading]);
+    let cancelled = false;
+    let timer;
+    const interaction = InteractionManager.runAfterInteractions(() => {
+      if (cancelled) {
+        return;
+      }
+      const delay = Platform.OS === 'ios' ? 300 : 0;
+      timer = setTimeout(() => {
+        if (cancelled) {
+          return;
+        }
+        LocationUtil.getCurrentLocation(
+          locationobj => {
+            console.log('locationobj', locationobj);
+            GeocodeUtil.getAddressObject(
+              {
+                lat: locationobj.lat,
+                lng: locationobj.lng,
+              },
+              (result, isSuccess) => {
+                if (isSuccess) {
+                  saveAndDisplayAddress(result);
+                }
+              },
+            );
+            const next = {
+              latitude: locationobj.lat,
+              longitude: locationobj.lng,
+              ...COORDINATES_DELTA,
+            };
+            setCurrentLocation(next);
+            setCoordinateMap({
+              latitude: locationobj.lat,
+              longitude: locationobj.lng,
+            });
+          },
+          false,
+          false,
+        );
+      }, delay);
+    });
+    return () => {
+      cancelled = true;
+      interaction?.cancel?.();
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+    if (!isValidCoordPair(currentLocation.latitude, currentLocation.longitude)) {
+      return;
+    }
+    const t = setTimeout(() => {
+      mapRef.current?.animateToRegion(
+        {
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          ...COORDINATES_DELTA,
+        },
+        600,
+      );
+    }, 400);
+    return () => clearTimeout(t);
+  }, [currentLocation.latitude, currentLocation.longitude, isLoading]);
 
   const onSearch = text => {
     // set text
@@ -271,6 +326,16 @@ const SearchLocation = ({ route }) => {
               style={Styles.map}
               ref={mapRef}
               customMapStyle={MapStyles}
+              showsUserLocation
+              showsMyLocationButton={false}
+              initialRegion={
+                isValidCoordPair(
+                  currentLocation.latitude,
+                  currentLocation.longitude,
+                )
+                  ? { ...currentLocation, ...COORDINATES_DELTA }
+                  : DEFAULT_MAP_REGION
+              }
               onRegionChangeComplete={region => {
                 setMapCenter({
                   latitude: region.latitude,
