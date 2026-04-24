@@ -1,3 +1,5 @@
+import { CLIENT_SECRET_KEY } from './Constants';
+
 export const applePayRequestConfig = {
   cartItems: [
     {
@@ -10,9 +12,10 @@ export const applePayRequestConfig = {
   currency: 'USD',
   merchantName: 'merchant.app.zingfitness',
 };
-// google
+// google — must match Stripe key mode: live Google Pay when using pk_live; test UI when using pk_test
+// (__DEV__ alone does not, and confused live Stripe with test Google Pay)
 export const googlePayRequestConfig = {
-  testEnv: __DEV__,
+  testEnv: CLIENT_SECRET_KEY.startsWith('pk_test_'),
   merchantName: 'Zing Fitness',
   countryCode: 'US',
   billingAddressConfig: {

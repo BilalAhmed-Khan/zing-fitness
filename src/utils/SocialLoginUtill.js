@@ -8,6 +8,31 @@ import {
 import { appleAuth } from '@invertase/react-native-apple-authentication';
 import { Alert, Platform } from 'react-native';
 
+/** Meta returns this when the app is restricted or Android setup (e.g. key hash) does not match. */
+function facebookMetaRestrictionMessage(detail) {
+  const s = String(detail || '').toLowerCase();
+  if (
+    s.includes('unavailable') ||
+    s.includes('updating additional details') ||
+    s.includes('feature unavailable')
+  ) {
+    const androidExtra =
+      Platform.OS === 'android'
+        ? ' On Android, also open Meta → Settings → Advanced → Android: add every signing key hash (debug ' +
+          'keystore and Play App Signing certificate if you ship via Play). iOS working but Android failing ' +
+          'usually means a missing/wrong Android key hash or incomplete Android platform fields.'
+        : '';
+    return (
+      'Facebook blocked this login from Meta’s side.' +
+      androidExtra +
+      ' Check developers.facebook.com for any Android-only alerts, package com.zingFitness.app, and key hashes. ' +
+      'Detail: ' +
+      (detail ? String(detail) : 'none')
+    );
+  }
+  return null;
+}
+
 async function googleLogin(succusCallback) {
   try {
     if (Platform.OS === 'android') {
@@ -65,11 +90,13 @@ async function getInfoFromToken(token, succusCallback) {
     (error, result) => {
       if (error) {
         console.warn('Facebook Graph /me error', error);
-        const msg =
+        const raw =
           error?.errorMessage ||
           error?.message ||
+          (typeof error === 'string' ? error : '') ||
           'Could not load your Facebook profile.';
-        Alert.alert('Facebook', String(msg));
+        const metaMsg = facebookMetaRestrictionMessage(raw);
+        Alert.alert('Facebook', metaMsg || String(raw));
         return;
       }
       const payloadApi = {
@@ -101,6 +128,10 @@ async function getInfoFromToken(token, succusCallback) {
 
 async function facebookLogin(succusCallback) {
   try {
+    // Native Facebook-app login can hit different validation than iOS; Custom Tabs matches web flow.
+    if (Platform.OS === 'android') {
+      LoginManager.setLoginBehavior('web_only');
+    }
     const result = await LoginManager.logInWithPermissions([
       'public_profile',
       'email',
@@ -119,11 +150,12 @@ async function facebookLogin(succusCallback) {
     getInfoFromToken(data.accessToken.toString(), succusCallback);
   } catch (error) {
     console.warn('Facebook login', error);
-    Alert.alert(
-      'Facebook',
+    const raw =
       error?.message ||
-        'Facebook sign-in failed. Verify the Facebook app ID and key hashes in Meta Developer settings.',
-    );
+      error?.errorMessage ||
+      'Facebook sign-in failed. Verify the Facebook app ID and key hashes in Meta Developer settings.';
+    const metaMsg = facebookMetaRestrictionMessage(raw);
+    Alert.alert('Facebook', metaMsg || String(raw));
   }
 }
 async function appleLogin(succusCallback) {

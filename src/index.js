@@ -23,7 +23,8 @@ import FlashMessage from 'react-native-flash-message';
 import { TopBar } from './components';
 import NetworkFab from './components/NetworkFab';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { googleProfileRequestConfig } from './config/SocialLogin';
+import { Settings as FBSettings } from 'react-native-fbsdk-next';
+import { facebookAppId, googleProfileRequestConfig } from './config/SocialLogin';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { CLIENT_SECRET_KEY } from './config/Constants';
 import dayjs from 'dayjs';
@@ -50,6 +51,9 @@ const App = () => {
     GoogleSignin.configure({
       webClientId: googleProfileRequestConfig.webClientId,
     });
+
+    FBSettings.setAppID(facebookAppId);
+    FBSettings.initializeSDK();
 
     FirebaseUtils.configure();
     FirebaseUtils.registerFCMListener();

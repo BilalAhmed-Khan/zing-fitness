@@ -1,3 +1,7 @@
+// Facebook App ID must match android/app/src/main/res/values/strings.xml
+// and ios/.../Info.plist (native config cannot read this file).
+export const facebookAppId = '268636574440951';
+
 // google
 export const googleProfileRequestConfig = {
   scopes: [],
