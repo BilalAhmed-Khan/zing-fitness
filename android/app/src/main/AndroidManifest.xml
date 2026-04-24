@@ -9,7 +9,7 @@
     <uses-permission android:name="android.permission.CAMERA"/>
 
     <application
-      android:name="com.fitness.app.MainApplication"
+      android:name="com.zingFitness.app.MainApplication"
       android:label="@string/app_name"
       android:icon="@mipmap/ic_launcher"
       android:roundIcon="@mipmap/ic_launcher"
@@ -23,7 +23,7 @@
       <meta-data android:name="com.facebook.sdk.ApplicationId" android:value="@string/facebook_app_id"/>
       <meta-data android:name="com.facebook.sdk.ClientToken" android:value="@string/facebook_client_token"/>
       <activity
-        android:name="com.fitness.app.MainActivity"
+        android:name="com.zingFitness.app.MainActivity"
         android:label="@string/app_name"
         android:configChanges="keyboard|keyboardHidden|orientation|screenSize|uiMode"
         android:launchMode="singleTask"
