@@ -23,6 +23,7 @@ import {
   myTrainers,
 } from '.';
 import { Util } from '../../utils';
+import { SessionUtill } from '../../dataUtils';
 
 function* watchGetTrainerListing() {
   while (true) {
@@ -95,14 +96,17 @@ function* watchGetTrainerSession() {
         {},
         id,
       );
+      const sessionData = SessionUtill.mergeAvailableDateTimeSlots(
+        response?.data,
+      );
       yield put(
         getTrainerSession.success({
-          data: response?.data,
+          data: sessionData,
           identifier,
           id,
         }),
       );
-      cb?.(response?.data);
+      cb?.(sessionData);
     } catch (error) {
       yield put(
         getTrainerSession.failure({

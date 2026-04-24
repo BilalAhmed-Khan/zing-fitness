@@ -1,8 +1,4 @@
-import {
-  useApplePay,
-  useGooglePay,
-  useStripe,
-} from '@stripe/stripe-react-native';
+import { useGooglePay, useStripe } from '@stripe/stripe-react-native';
 import React from 'react';
 import { useState } from 'react';
 import { FlatList, Image, Pressable, ScrollView, View } from 'react-native';
@@ -98,52 +94,74 @@ const UserTrainerSchedule = ({ route }) => {
     }, 300);
   };
 
-  const { presentApplePay, confirmApplePayPayment, isApplePaySupported } =
-    useApplePay();
-
   const {
     initGooglePay,
     presentGooglePay,
     isGooglePaySupported,
   } = useGooglePay();
 
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const {
+    initPaymentSheet,
+    presentPaymentSheet,
+    confirmPlatformPayPayment,
+    isPlatformPaySupported,
+  } = useStripe();
 
   const _processApplePay = async (clientSecret, payData) => {
-    if (!(await isApplePaySupported)) {
-      Util.showMessage('Apple Pay is not supported.');
+    if (!Util.isPlatformIOS()) {
       return;
     }
-    console.log('payData ==>', payData);
-    // console.log('Data ==>', data);
-    const cartItems = [
-      {
-        label: 'Zing Fitness',
-        amount: `${payData.amount / 100}`,
-        paymentType: 'Immediate',
-      },
-    ];
-    console.log('cartItems', cartItems);
-    const { error } = await presentApplePay({
-      cartItems: cartItems,
-      country: applePayRequestConfig.country,
-      currency: applePayRequestConfig.currency,
-      merchantName: 'merchant.app.zingfitness',
-    });
-    if (error) {
-      Util.showMessage(error.message);
-    } else {
-      try {
-        const response = await confirmApplePayPayment(clientSecret);
-        const { error: confirmError } = response;
-        if (confirmError) {
-          Util.showMessage(`${confirmError}!`);
-        } else {
-          sucessModal();
-        }
-      } catch (err) {
-        console.log(err, 'err');
+    try {
+      if (!(await isPlatformPaySupported())) {
+        Util.showMessage('Apple Pay is not available on this device.');
+        return;
       }
+    } catch (_e) {
+      Util.showMessage('Apple Pay is not available.');
+      return;
+    }
+    const amountCents = Number(payData?.amount);
+    if (!Number.isFinite(amountCents) || amountCents < 1) {
+      Util.showMessage('Invalid payment amount.');
+      return;
+    }
+    if (!clientSecret) {
+      Util.showMessage('Payment could not be started. Please try again.');
+      return;
+    }
+    const amountStr = (amountCents / 100).toFixed(2);
+    try {
+      const { error, paymentIntent } = await confirmPlatformPayPayment(
+        clientSecret,
+        {
+          applePay: {
+            cartItems: [
+              {
+                label: 'Zing Fitness',
+                amount: amountStr,
+                paymentType: 'Immediate',
+              },
+            ],
+            merchantCountryCode: applePayRequestConfig.country,
+            currencyCode: applePayRequestConfig.currency,
+          },
+        },
+      );
+      if (error) {
+        const code = error.code;
+        if (code !== 'Canceled' && code !== 'canceled') {
+          Util.showMessage(
+            error.message ?? 'Apple Pay could not complete. Please try again.',
+          );
+        }
+        return;
+      }
+      if (paymentIntent) {
+        sucessModal();
+      }
+    } catch (err) {
+      console.log(err, 'applePayConfirmErr');
+      Util.showMessage('Apple Pay could not complete. Please try again.');
     }
   };
 

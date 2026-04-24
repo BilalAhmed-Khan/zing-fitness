@@ -41,6 +41,32 @@ class SessionUtill {
 
   availableDateTime = user =>
     user?.availableDateTime?.map(val => val.day) ?? [];
+
+  /**
+   * API sometimes returns empty `slots` on the root `availableDateTime` while
+   * the same day has slots under `trainer.session.availableDateTime`.
+   */
+  mergeAvailableDateTimeSlots = session => {
+    if (!session) return session;
+    const root = session.availableDateTime;
+    const nested = session.trainer?.session?.availableDateTime;
+    if (!Array.isArray(root) || !Array.isArray(nested) || nested.length === 0) {
+      return session;
+    }
+    const merged = root.map(entry => {
+      const hasRootSlots = Array.isArray(entry.slots) && entry.slots.length > 0;
+      if (hasRootSlots) {
+        return entry;
+      }
+      const match = nested.find(n => n.day === entry.day);
+      const fill = match?.slots;
+      if (Array.isArray(fill) && fill.length > 0) {
+        return { ...entry, slots: fill };
+      }
+      return entry;
+    });
+    return { ...session, availableDateTime: merged };
+  };
 }
 
 export default new SessionUtill();
