@@ -164,12 +164,17 @@ const Login = () => {
     }
 
     const runSocialLogin = decoded => {
-      const platformId = decoded?.sub || appleUserId;
-      const emailAddress =
-        (emailFromApple || decoded?.email || '').trim() || '';
-      if (!platformId || !emailAddress) {
+      // Apple only sends email on the first sign-in; later logins still provide
+      // a stable user id (JWT `sub` / credential `user`). Do not require email.
+      const platformId = (decoded?.sub || appleUserId || '').trim() || '';
+      const emailAddress = (
+        emailFromApple ||
+        decoded?.email ||
+        ''
+      ).trim();
+      if (!platformId) {
         Util.showMessage(
-          'Could not read your Apple account id or email. Sign in again and choose Share My Email, or use email login.',
+          'Could not read your Apple account id. Sign in again or use email login.',
         );
         return;
       }
