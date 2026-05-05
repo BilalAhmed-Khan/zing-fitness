@@ -1,38 +1,88 @@
+import { Platform } from 'react-native';
 import PushNotificationIOS from '@react-native-community/push-notification-ios';
 import messaging from '@react-native-firebase/messaging';
 import PushNotification from 'react-native-push-notification';
-import { Util, NavigationService, DataHandler } from '.';
+import { Util, DataHandler } from '.';
 import { bookingDetails, trainerAccept } from '../ducks/booking';
 import { getChatCurrentRoomId } from '../ducks/chat';
-import { getTrainerSession } from '../ducks/trainer';
-// import { getUserData } from '../ducks/auth';
 
-// import { addNotificationCount, requestGetActivities } from "../ducks/activity";
-// import DataHandler from "./DataHandler";
+function fcmPayloadIdentifier(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return '';
+  }
+  const id =
+    raw.identifier ??
+    raw.target_identifier ??
+    raw.TargetIdentifier ??
+    raw.Identifier;
+  return id == null ? '' : String(id).trim();
+}
+
+function fcmPayloadReferenceId(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return '';
+  }
+  const id =
+    raw.reference_id ??
+    raw.referenceId ??
+    raw.booking_id ??
+    raw.bookingId ??
+    raw.ref_id;
+  return id == null ? '' : String(id).trim();
+}
+
+function showRealtimeBookingInvitationModal(bookingPayload) {
+  const modalRef = DataHandler.getTraineAlertModal();
+  if (modalRef?.show) {
+    modalRef.show({ data: bookingPayload });
+  }
+}
 
 class FirebaseUtils {
   unsubscribe;
 
-  getPermission = async () => {
-    const authorizationStatus = await messaging().requestPermission();
-    const enabled =
-      authorizationStatus !== messaging.AuthorizationStatus.AUTHORIZED ||
-      authorizationStatus !== messaging.AuthorizationStatus.PROVISIONAL;
+  tokenRefreshUnsubscribe;
 
-    return enabled;
+  getPermission = async () => {
+    const authorizationStatus = await messaging().requestPermission(
+      Platform.OS === 'ios' ? { provisional: true } : undefined,
+    );
+    return (
+      authorizationStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+      authorizationStatus === messaging.AuthorizationStatus.PROVISIONAL
+    );
+  };
+
+  /** Ensure APNS registration (iOS) before token retrieval — avoids race / empty tokens at login */
+  ensureRegisteredForRemoteMessages = async () => {
+    try {
+      if (Platform.OS === 'ios') {
+        await messaging().registerDeviceForRemoteMessages();
+      }
+      return true;
+    } catch (e) {
+      if (__DEV__) {
+        console.warn('[FCM] registerDeviceForRemoteMessages failed:', e?.message ?? e);
+      }
+      return false;
+    }
   };
 
   getTokenPromise = async () => {
-    return new Promise((resolve, reject) => {
-      messaging()
-        .getToken()
-        .then(token => {
-          resolve(token);
-        })
-        .catch(() => {
-          resolve('');
-        });
-    });
+    try {
+      await this.ensureRegisteredForRemoteMessages();
+      const token = await messaging().getToken();
+      const out = typeof token === 'string' ? token.trim() : '';
+      if (__DEV__) {
+        console.log('[FCM] getToken:', out ? `${out.slice(0, 28)}…` : '(empty)');
+      }
+      return out;
+    } catch (e) {
+      if (__DEV__) {
+        console.warn('[FCM] getToken failed:', e?.message ?? e);
+      }
+      return '';
+    }
   };
 
   createChannel = () => {
@@ -108,7 +158,12 @@ class FirebaseUtils {
   };
 
   registerFCMListener = () => {
-    this.getPermission();
+    void this.setupFirebaseMessaging();
+  };
+
+  setupFirebaseMessaging = async () => {
+    await this.ensureRegisteredForRemoteMessages();
+    await this.getPermission();
 
     this.createChannel();
 
@@ -127,38 +182,61 @@ class FirebaseUtils {
         }
       });
 
-    this.unsubscribe = messaging().onMessage(({ data, notification }) => {
-      console.log('NOTIFICATION  ===>', notification, data);
+    this.tokenRefreshUnsubscribe?.();
+    this.tokenRefreshUnsubscribe = messaging().onTokenRefresh(token => {
+      if (__DEV__) {
+        console.log(
+          '[FCM] Token refreshed;',
+          typeof token === 'string' ? `${token.slice(0, 28)}…` : token,
+        );
+      }
+      // Backend updates token mainly on login; re-login refreshes associations.
+    });
+
+    this.unsubscribe = messaging().onMessage(remoteMessage => {
+      const raw = remoteMessage?.data ?? {};
+      const identifier = fcmPayloadIdentifier(raw);
+      const referenceId = fcmPayloadReferenceId(raw);
+
+      console.log('NOTIFICATION  ===>', remoteMessage?.notification, raw, {
+        identifier,
+        referenceId,
+      });
       const chatRoomID = getChatCurrentRoomId(
         DataHandler.getStore().getState(),
       );
       Util.refreshNotificationData();
       const { dispatch } = DataHandler.getStore();
-      if (data.identifier === 'real_time_booking') {
+      const { notification } = remoteMessage ?? {};
+
+      if (identifier === 'real_time_booking' && referenceId) {
         dispatch(
           bookingDetails.request({
-            payloadApi: { id: data?.reference_id },
-            identifier: data?.reference_id,
-            cb: data => {
+            payloadApi: { id: referenceId },
+            identifier: referenceId,
+            cb: booking => {
               setTimeout(() => {
-                DataHandler.getTraineAlertModal().show({ data: data });
+                showRealtimeBookingInvitationModal(booking);
               }, 500);
             },
           }),
         );
-      } else if (data?.identifier === 'real_time_booking_accepted') {
+      } else if (
+        identifier === 'real_time_booking_accepted' &&
+        referenceId
+      ) {
         dispatch(
           bookingDetails.request({
-            payloadApi: { id: data?.reference_id },
-            identifier: data?.reference_id,
-            cb: data => {
-              dispatch(trainerAccept({ id: data?.id }));
+            payloadApi: { id: referenceId },
+            identifier: referenceId,
+            cb: booking => {
+              dispatch(trainerAccept({ id: booking?.id }));
             },
           }),
         );
-      } else if (data?.reference_id === chatRoomID) {
+      } else if (fcmPayloadReferenceId(raw) === String(chatRoomID)) {
       } else if (Util.isPlatformAndroid()) {
-        this.showLocalNotification(notification.title, notification.body, data);
+        this.showLocalNotification(notification?.title, notification?.body, raw);
       }
     });
   };
@@ -171,6 +249,8 @@ class FirebaseUtils {
 
   unRegisterFCMListener() {
     this.unsubscribe?.();
+    this.tokenRefreshUnsubscribe?.();
+    this.tokenRefreshUnsubscribe = undefined;
   }
 
   removeAllNotifications() {

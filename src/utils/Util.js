@@ -355,10 +355,39 @@ function getTimeSlotsFromMoment(currentDate, slotDuration) {
   return slots;
 }
 
+/** Align with FCM/Android payload variants (snake_case vs camelCase keys, string values). */
+function getFcmPayloadIdentifier(data) {
+  if (!data || typeof data !== 'object') {
+    return '';
+  }
+  const id =
+    data.identifier ??
+    data.target_identifier ??
+    data.TargetIdentifier ??
+    data.Identifier;
+  return id == null ? '' : String(id).trim();
+}
+
+function getFcmPayloadReferenceId(data) {
+  if (!data || typeof data !== 'object') {
+    return '';
+  }
+  const id =
+    data.reference_id ??
+    data.referenceId ??
+    data.booking_id ??
+    data.bookingId ??
+    data.ref_id;
+  return id == null ? '' : String(id).trim();
+}
+
 function onNotificationTap(data) {
   console.log('DATA ==>', data);
   const { dispatch } = DataHandler.getStore();
-  switch (data?.target_identifier || data?.identifier) {
+  const nid = getFcmPayloadIdentifier(data);
+  const refId = getFcmPayloadReferenceId(data);
+
+  switch (nid) {
     case 'chat_messages':
       dispatch(
         createChatRoom.request({
@@ -375,23 +404,31 @@ function onNotificationTap(data) {
       );
       break;
     case 'real_time_booking':
+      if (!refId) {
+        break;
+      }
       dispatch(
         bookingDetails.request({
-          payloadApi: { id: data?.reference_id },
-          identifier: data?.reference_id,
-          cb: data => {
+          payloadApi: { id: refId },
+          identifier: refId,
+          cb: detail => {
             setTimeout(() => {
-              DataHandler.getTraineAlertModal().show({ data: data });
+              DataHandler.getTraineAlertModal()?.show?.({
+                data: detail,
+              });
             }, 500);
           },
         }),
       );
       break;
     case 'real_time_booking_accepted':
+      if (!refId) {
+        break;
+      }
       dispatch(
         bookingDetails.request({
-          payloadApi: { id: data?.reference_id },
-          identifier: data?.reference_id,
+          payloadApi: { id: refId },
+          identifier: refId,
           cb: data => {
             console.log('data  =>', data);
             if (data.isPaid) {
@@ -418,10 +455,13 @@ function onNotificationTap(data) {
       // NavigationService.navigate('ScoreCardDetails', {
       //   id: data?.ref_id,
       // });
+      if (!refId) {
+        break;
+      }
       dispatch(
         bookingDetails.request({
-          payloadApi: { id: data?.reference_id },
-          identifier: data?.reference_id,
+          payloadApi: { id: refId },
+          identifier: refId,
           cb: data => {
             // dispatch(trainerAccept({ id: data?.id }));
             NavigationService.navigate('TrainerSessionDetail', {
@@ -436,10 +476,13 @@ function onNotificationTap(data) {
     case 'class_booked':
     case 'booking_completed':
     case 'booking_started':
+      if (!refId) {
+        break;
+      }
       dispatch(
         bookingDetails.request({
-          payloadApi: { id: data?.reference_id },
-          identifier: data?.reference_id,
+          payloadApi: { id: refId },
+          identifier: refId,
           cb: data => {
             // dispatch(trainerAccept({ id: data?.id }));
             NavigationService.navigate('TrainerSessionDetail', {

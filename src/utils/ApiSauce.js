@@ -67,8 +67,10 @@ async function callRequest(url, payload, headers = {}, parameter = '') {
     );
     headers[X_API_TOKEN] = token;
     if (currentLocation.length > 0) {
-      payload.currentLongitude = currentLocation[0];
-      payload.currentLatitude = currentLocation[1];
+      if (payload?.currentLongitude == null && payload?.currentLatitude == null) {
+        payload.currentLongitude = currentLocation[0];
+        payload.currentLatitude = currentLocation[1];
+      }
       // payload.currentLongitude = -122.4064973;
       // payload.currentLatitude = 37.785868;
     }

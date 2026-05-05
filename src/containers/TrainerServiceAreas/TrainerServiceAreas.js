@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, View } from 'react-native';
+import { Image, Keyboard, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 
 import {
@@ -44,29 +44,38 @@ const initialRegion = {
   ...COORDINATES_DELTA,
 };
 
-/** Geo [lng, lat] from geocode object, or map center when address is still a plain string. */
-const resolveProfileCoordinates = (address, currentLocation) => {
-  if (
-    address &&
-    typeof address === 'object' &&
-    typeof address.lat === 'number' &&
-    typeof address.lng === 'number' &&
-    !Number.isNaN(address.lat) &&
-    !Number.isNaN(address.lng)
-  ) {
-    return [address.lng, address.lat];
+const toCoordNumber = value => {
+  if (typeof value === 'function') {
+    return Number(value());
   }
-  const lat = currentLocation?.latitude;
-  const lng = currentLocation?.longitude;
+  return Number(value);
+};
+
+/** [lng, lat] — prefers map center when valid, then geocode object (APIs may return string coords). */
+const resolveProfileCoordinates = (address, currentLocation) => {
+  const mapLat = currentLocation?.latitude;
+  const mapLng = currentLocation?.longitude;
   if (
-    typeof lat === 'number' &&
-    typeof lng === 'number' &&
-    !Number.isNaN(lat) &&
-    !Number.isNaN(lng) &&
-    lat !== -1 &&
-    lng !== -1
+    typeof mapLat === 'number' &&
+    typeof mapLng === 'number' &&
+    !Number.isNaN(mapLat) &&
+    !Number.isNaN(mapLng) &&
+    mapLat !== -1 &&
+    mapLng !== -1
   ) {
-    return [lng, lat];
+    return [mapLng, mapLat];
+  }
+  if (address && typeof address === 'object') {
+    const aLat = toCoordNumber(address.lat);
+    const aLng = toCoordNumber(address.lng);
+    if (
+      !Number.isNaN(aLat) &&
+      !Number.isNaN(aLng) &&
+      aLat !== 0 &&
+      aLng !== 0
+    ) {
+      return [aLng, aLat];
+    }
   }
   return null;
 };
@@ -80,6 +89,14 @@ const profileAddressString = address => {
   }
   return '';
 };
+
+const isValidCoordPair = (lat, lng) =>
+  typeof lat === 'number' &&
+  typeof lng === 'number' &&
+  !Number.isNaN(lat) &&
+  !Number.isNaN(lng) &&
+  lat !== -1 &&
+  lng !== -1;
 
 const MilesSlider = ({ value, onChange }) => {
   return (
@@ -110,6 +127,7 @@ const TrainerServiceAreas = ({ route }) => {
   const payload = route?.params?.payload ?? {};
   const isEdit = route?.params?.isEdit ?? false;
   const dropDownModalRef = useRef();
+  const placesRef = useRef();
   const userData = useSelector(getUserData);
   const isTrainee = useSelector(getUserRole);
   // console.log('userData ===>', userData);
@@ -142,6 +160,62 @@ const TrainerServiceAreas = ({ route }) => {
   );
   // const [isRegionComplete, setIsRegionComplete] = useState(false);
   const mapRef = useRef();
+  const geocodeSeqRef = useRef(0);
+
+  const runReverseGeocode = (lat, lng, onApplied) => {
+    const nLat = toCoordNumber(lat);
+    const nLng = toCoordNumber(lng);
+    if (Number.isNaN(nLat) || Number.isNaN(nLng)) {
+      return;
+    }
+    const seq = ++geocodeSeqRef.current;
+    GeocodeUtil.getAddressObject({ lat: nLat, lng: nLng }, (result, isSuccess) => {
+      if (seq !== geocodeSeqRef.current) {
+        return;
+      }
+      if (isSuccess) {
+        onApplied(result);
+      }
+    });
+  };
+  const applyResolvedPlace = result => {
+    const lat = toCoordNumber(result?.lat);
+    const lng = toCoordNumber(result?.lng);
+    if (!isValidCoordPair(lat, lng)) {
+      return;
+    }
+    setCurrentLocation({
+      latitude: lat,
+      longitude: lng,
+      ...COORDINATES_DELTA,
+    });
+    setCoordinateMap({
+      latitude: lat,
+      longitude: lng,
+    });
+    saveAndDisplayAddress({
+      ...result,
+      lat,
+      lng,
+    });
+  };
+  const searchFromQuery = rawQuery => {
+    const trimmed = (rawQuery ?? '').trim();
+    if (!trimmed) {
+      Util.showMessage('Please enter a location');
+      return;
+    }
+    Keyboard.dismiss();
+    GeocodeUtil.getAddressObject(trimmed, (result, isSuccess) => {
+      if (isSuccess) {
+        applyResolvedPlace(result);
+      } else {
+        Util.showMessage(
+          typeof result === 'string' ? result : 'Location not found',
+        );
+      }
+    });
+  };
   const _onPress = () => {
     // NavigationService.navigate('TrainerApp');
     // console.log('address', address);
@@ -161,6 +235,8 @@ const TrainerServiceAreas = ({ route }) => {
     payloadApi = {
       address: profileAddressString(address),
       coverageMiles: miles,
+      currentLongitude: cordinates[0],
+      currentLatitude: cordinates[1],
       // location: { cordinates, },
     };
 
@@ -182,14 +258,16 @@ const TrainerServiceAreas = ({ route }) => {
         payloadApi,
         id: UserUtill.id(userData),
         cb: () => {
-          isEdit
-            ? NavigationService.goBack()
-            : NavigationService.reset('TrainerApp');
+          Util.showMessage(
+            isEdit
+              ? 'Your location has been updated successfully.'
+              : 'Your location has been saved successfully.',
+            'sucess',
+          );
           if (isEdit) {
-            Util.showMessage(
-              'Your Location has been updated sucessfully',
-              'sucess',
-            );
+            NavigationService.goBack();
+          } else {
+            NavigationService.reset('TrainerApp');
           }
         },
       }),
@@ -214,17 +292,7 @@ const TrainerServiceAreas = ({ route }) => {
         locationobj => {
           // console.log('locationobj', locationobj);
           // getGolfCourseData(locationobj, () => {});
-          GeocodeUtil.getAddressObject(
-            {
-              lat: locationobj.lat,
-              lng: locationobj.lng,
-            },
-            (result, isSuccess) => {
-              if (isSuccess) {
-                saveAndDisplayAddress(result);
-              }
-            },
-          );
+          runReverseGeocode(locationobj.lat, locationobj.lng, saveAndDisplayAddress);
           // saveAndDisplayAddress(locationobj);
           setCurrentLocation({
             latitude: locationobj.lat,
@@ -241,20 +309,14 @@ const TrainerServiceAreas = ({ route }) => {
       );
     } else {
       // console.log(UserUtill.lat(userData), UserUtill.long(userData));
-      GeocodeUtil.getAddressObject(
-        {
-          lat: isTrainee
-            ? UserUtill.serviceArealat(userData)
-            : UserUtill.lat(userData),
-          lng: isTrainee
-            ? UserUtill.serviceArealong(userData)
-            : UserUtill.long(userData),
-        },
-        (result, isSuccess) => {
-          if (isSuccess) {
-            saveAndDisplayAddress(result);
-          }
-        },
+      runReverseGeocode(
+        isTrainee
+          ? UserUtill.serviceArealat(userData)
+          : UserUtill.lat(userData),
+        isTrainee
+          ? UserUtill.serviceArealong(userData)
+          : UserUtill.long(userData),
+        saveAndDisplayAddress,
       );
       setCoordinateMap({
         latitude: isTrainee
@@ -267,6 +329,35 @@ const TrainerServiceAreas = ({ route }) => {
     }
   }, [mapRef.current, isLoading]);
 
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+    if (
+      !isValidCoordPair(currentLocation?.latitude, currentLocation?.longitude)
+    ) {
+      return;
+    }
+    const t = setTimeout(() => {
+      mapRef.current?.animateToRegion(
+        {
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          ...COORDINATES_DELTA,
+        },
+        600,
+      );
+    }, 250);
+    return () => clearTimeout(t);
+  }, [currentLocation?.latitude, currentLocation?.longitude, isLoading]);
+
+  useEffect(() => {
+    const nextText = profileAddressString(address);
+    if (typeof nextText === 'string') {
+      placesRef.current?.setAddressText(nextText);
+    }
+  }, [address]);
+
   const onSearch = text => {
     // set text
     // console.log(text);
@@ -274,42 +365,44 @@ const TrainerServiceAreas = ({ route }) => {
   };
   const saveAndDisplayAddress = info => {
     // console.log(info);
-    setInputText(info?.address);
+    const nextText = info?.address ?? '';
+    setInputText(nextText);
     setAddress(info);
+    placesRef.current?.setAddressText(nextText);
     // console.log('saveAndDisplayAddress ==>', info);
   };
   const onSelectAutoSuggest = (data, details = null) => {
-    // console.log(details, data);
-    setCoordinateMap({
-      latitude: details.geometry.location.lat,
-      longitude: details.geometry.location.lng,
+    const loc = details?.geometry?.location;
+    if (!loc) {
+      return;
+    }
+    const lat = toCoordNumber(loc.lat);
+    const lng = toCoordNumber(loc.lng);
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      return;
+    }
+    setCurrentLocation({
+      latitude: lat,
+      longitude: lng,
+      ...COORDINATES_DELTA,
     });
-    GeocodeUtil.getAddressObject(
-      {
-        lat: details.geometry.location.lat,
-        lng: details.geometry.location.lng,
-      },
-      (result, isSuccess) => {
-        if (isSuccess) {
-          saveAndDisplayAddress(result);
-        }
-      },
-    );
+    setCoordinateMap({ latitude: lat, longitude: lng });
+    runReverseGeocode(lat, lng, saveAndDisplayAddress);
   };
 
   const onRegionChangeComplete = region => {
     if (!isLoading) {
-      GeocodeUtil.getAddressObject(
-        {
-          lat: region.latitude,
-          lng: region.longitude,
-        },
-        (result, isSuccess) => {
-          if (isSuccess) {
-            saveAndDisplayAddress(result);
-          }
-        },
-      );
+      setCurrentLocation(prev => {
+        if (prev.latitude === -1 && prev.longitude === -1) {
+          return prev;
+        }
+        return {
+          latitude: region.latitude,
+          longitude: region.longitude,
+          ...COORDINATES_DELTA,
+        };
+      });
+      runReverseGeocode(region.latitude, region.longitude, saveAndDisplayAddress);
     }
   };
 
@@ -338,6 +431,8 @@ const TrainerServiceAreas = ({ route }) => {
     const payloadApi = {
       address: profileAddressString(address),
       timeZone: values.timeZone,
+      currentLongitude: cordinates[0],
+      currentLatitude: cordinates[1],
       location: { cordinates },
     };
     const newPayload = {
@@ -350,14 +445,16 @@ const TrainerServiceAreas = ({ route }) => {
         payloadApi: newPayload,
         id: UserUtill.id(userData),
         cb: () => {
-          isEdit
-            ? NavigationService.goBack()
-            : NavigationService.reset('UserApp');
+          Util.showMessage(
+            isEdit
+              ? 'Your location has been updated successfully.'
+              : 'Your location has been saved successfully.',
+            'sucess',
+          );
           if (isEdit) {
-            Util.showMessage(
-              'Your Location has been updated sucessfully',
-              'sucess',
-            );
+            NavigationService.goBack();
+          } else {
+            NavigationService.reset('UserApp');
           }
         },
       }),
@@ -380,6 +477,12 @@ const TrainerServiceAreas = ({ route }) => {
               style={Styles.map}
               ref={mapRef}
               customMapStyle={MapStyles}
+              initialRegion={
+                currentLocation.latitude !== -1 &&
+                currentLocation.longitude !== -1
+                  ? { ...currentLocation }
+                  : undefined
+              }
               onRegionChangeComplete={onRegionChangeComplete}
             />
           )}
@@ -407,13 +510,31 @@ const TrainerServiceAreas = ({ route }) => {
             <Text style={Styles.heading}>
               {isTrainee ? 'Service Areas' : 'YOUR LOCATION & TIME ZONE'}
             </Text>
+            <View style={Styles.selectedLocationBox}>
+              <Text style={Styles.selectedLocationLabel}>
+                Selected location
+              </Text>
+              {profileAddressString(address) ? (
+                <Text
+                  style={Styles.selectedLocationText}
+                  numberOfLines={4}>
+                  {profileAddressString(address)}
+                </Text>
+              ) : (
+                <Text style={Styles.selectedLocationPlaceholder}>
+                  Search or move the map to set your location
+                </Text>
+              )}
+            </View>
             <GooglePlacesAutocomplete
+              ref={placesRef}
               placeholder="Search"
               textInputProps={{
                 placeholderTextColor: Colors.black,
                 returnKeyType: 'search',
                 value: inputText,
                 onChangeText: onSearch,
+                onSubmitEditing: () => searchFromQuery(inputText),
               }}
               fetchDetails={true}
               styles={Styles.searchInputStyle}

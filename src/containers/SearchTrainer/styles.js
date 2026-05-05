@@ -10,6 +10,20 @@ export const Styles = ScaledSheet.create({
   content: {
     flex: 1,
   },
+  waitingFindingCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: '24@ms',
+    paddingBottom: '40@ms',
+  },
+  waitingSubtitle: {
+    fontFamily: Fonts.regular,
+    fontSize: '13@ms',
+    textAlign: 'center',
+    marginTop: '16@ms',
+    paddingHorizontal: '12@ms',
+  },
   mapContent: {
     position: 'absolute',
     top: 0,

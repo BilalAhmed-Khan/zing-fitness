@@ -19,7 +19,6 @@ import {
   authEditProfile,
   getTrainerCategories,
   getUserData,
-  updateLocation,
   userCurrentLocation,
 } from '../../ducks/auth';
 import { connectAction } from '../../ducks/chat';
@@ -70,35 +69,12 @@ const UserHome = () => {
         address: LocationObj.address,
       };
       dispatch(userCurrentLocation({ data }));
-      dispatch(
-        updateLocation.request({
-          payloadApi: {
-            location: {
-              cordinates: data.cordinates,
-            },
-            address: data.address,
-          },
-          id: UserUtill.id(getUser),
-        }),
-      );
     });
   };
   useEffect(() => {
-    let verificationTime = 1;
-    timer.current = setInterval(() => {
-      if (verificationTime <= 0) {
-        verificationTime = 60;
-        getLocation();
-      } else {
-        verificationTime = verificationTime - 1;
-      }
-    }, 1000);
-
-    return () => {
-      if (timer.current) {
-        clearInterval(timer.current);
-      }
-    };
+    // Keep local app location updated, but do NOT update profile on Home.
+    getLocation();
+    return () => {};
   }, []);
 
   const FeaturedTrainers = ({ data }) => (

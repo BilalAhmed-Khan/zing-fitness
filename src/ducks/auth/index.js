@@ -132,6 +132,10 @@ export default createReducer(initalState, builder => {
       ...state.data,
       ...data,
     };
+    const nextCoords = data?.location?.cordinates;
+    if (Array.isArray(nextCoords) && nextCoords.length >= 2) {
+      state.userCurrentLocationObj = nextCoords;
+    }
   });
   builder.addCase(updateLocation.success, (state, action) => {
     const { data } = action.payload;
@@ -139,6 +143,10 @@ export default createReducer(initalState, builder => {
       ...state.data,
       ...data,
     };
+    const nextCoords = data?.location?.cordinates;
+    if (Array.isArray(nextCoords) && nextCoords.length >= 2) {
+      state.userCurrentLocationObj = nextCoords;
+    }
   });
   builder.addCase(authGetProfile.success, (state, action) => {
     const { data } = action.payload;
@@ -171,9 +179,7 @@ export default createReducer(initalState, builder => {
   });
   builder.addCase(userCurrentLocation, (state, action) => {
     const { data } = action.payload;
-    if (state.data?.address !== '') {
-      state.userCurrentLocationObj = data?.cordinates ?? [];
-    }
+    state.userCurrentLocationObj = data?.cordinates ?? [];
   });
   builder.addCase(deleteAccount.success, (state, action) => {
     state.data = {};
