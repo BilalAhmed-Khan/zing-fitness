@@ -1,10 +1,11 @@
 /** @format */
 
-import React, { useEffect } from 'react';
-import { View, Image } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Image, Animated, Easing } from 'react-native';
 import {
   AppHeader,
   Container,
+  Map,
   Text,
   Button,
   ImageView,
@@ -25,10 +26,35 @@ import CountDown from 'react-native-countdown-component';
 
 /** Finding-trainer flow (trainee). Match UI is inline here; trainers see TraineeAlertModal from FCM instead. */
 const SearchTrainer = ({ route }) => {
+  const animationProgress = useRef(new Animated.Value(0));
+  const [isLoading, setisLoading] = useState(true);
   const payloadData = route.params?.payloadData ?? false;
   const trainerFlag = useSelector(gettrainerFlag);
   const bookingData = useSelector(getbookingIdentifierBookingData(trainerFlag));
   const dispatch = useDispatch();
+
+  useEffect(() => {
+    if (trainerFlag !== '') {
+      animationProgress.current.stopAnimation();
+      return;
+    }
+    if (isLoading) {
+      const anim = Animated.timing(animationProgress.current, {
+        toValue: 1,
+        duration: 10000,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      });
+      anim.start(({ finished }) => {
+        if (finished) {
+          setisLoading(false);
+          animationProgress.current.setValue(0);
+        }
+      });
+      return () => anim.stop();
+    }
+    setisLoading(true);
+  }, [isLoading, trainerFlag]);
 
   useEffect(() => {
     return () => {
@@ -47,22 +73,22 @@ const SearchTrainer = ({ route }) => {
     </View>
   );
 
-  const waitingView = () => (
-    <>
-      <SearchBox />
-      <View style={Styles.waitingFindingCenter}>
+  const mapContent = () => (
+    <View style={Styles.mapContent}>
+      <View style={Styles.findingRadarFrame}>
         <Lottie
+          style={Styles.findingRadarLottie}
           source={Images.locationLottie}
-          autoPlay
+          progress={animationProgress.current}
           loop
-          style={{ width: 160, height: 160 }}
         />
-        <Image source={Images.locationSetting} />
-        <Text style={Styles.waitingSubtitle}>
-          Notifying nearby trainers. Please wait.
-        </Text>
+        <Image
+          source={Images.locationSetting}
+          style={Styles.findingPinOnRadar}
+          resizeMode="contain"
+        />
       </View>
-    </>
+    </View>
   );
 
   const Line = () => (
@@ -182,7 +208,30 @@ const SearchTrainer = ({ route }) => {
         showBack
       />
       <View style={Styles.content}>
-        {trainerFlag === '' ? waitingView() : null}
+        <Map
+          latitude={UserUtill.lat(payloadData)}
+          longitude={UserUtill.long(payloadData)}
+        />
+        <SearchBox />
+        {trainerFlag === '' ? (
+          <>
+            {mapContent()}
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                bottom: 100,
+                alignItems: 'center',
+                paddingHorizontal: 24,
+              }}>
+              <Text style={Styles.waitingSubtitle}>
+                Notifying nearby trainers. Please wait.
+              </Text>
+            </View>
+          </>
+        ) : null}
         {trainerFlag !== '' ? trainerView() : null}
       </View>
       <Loader type={['CREATE_BOOKING_INTENT']} />

@@ -1,6 +1,11 @@
 import { StyleSheet } from 'react-native';
-import { ScaledSheet } from 'react-native-size-matters';
+import { ScaledSheet, moderateScale } from 'react-native-size-matters';
 import { Colors, Fonts, Metrics } from '../../theme';
+
+/** Pin tip sits on the Lottie hub; sizes track the radar frame. */
+const FINDING_RADAR = moderateScale(300);
+const FINDING_PIN_W = moderateScale(44);
+const FINDING_PIN_H = moderateScale(22);
 
 export const Styles = ScaledSheet.create({
   header: {
@@ -31,8 +36,29 @@ export const Styles = ScaledSheet.create({
     bottom: 0,
     left: 0,
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingBottom: '90@ms',
+  },
+  findingRadarFrame: {
+    width: FINDING_RADAR,
+    height: FINDING_RADAR,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  findingRadarLottie: {
+    width: FINDING_RADAR,
+    height: FINDING_RADAR,
+  },
+  /** Bottom center of the pin image is aligned to the radar / Lottie center. */
+  findingPinOnRadar: {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    width: FINDING_PIN_W,
+    height: FINDING_PIN_H,
+    marginLeft: -FINDING_PIN_W / 2,
+    marginTop: -FINDING_PIN_H,
   },
   trainerList: {
     flexGrow: 0,
