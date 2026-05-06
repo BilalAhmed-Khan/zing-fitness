@@ -23,6 +23,7 @@ import {
 } from '../../ducks/booking';
 import CountDown from 'react-native-countdown-component';
 
+/** Finding-trainer flow (trainee). Match UI is inline here; trainers see TraineeAlertModal from FCM instead. */
 const SearchTrainer = ({ route }) => {
   const payloadData = route.params?.payloadData ?? false;
   const trainerFlag = useSelector(gettrainerFlag);

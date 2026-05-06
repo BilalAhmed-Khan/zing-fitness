@@ -1,4 +1,8 @@
 /** @format */
+/**
+ * Trainer app: accept/reject a real-time booking invite from a trainee.
+ * Opened via FCM (see FirebaseUtils + Util.onNotificationTap), not from trainee SearchTrainer.
+ */
 
 import React, { useImperativeHandle, useState } from 'react';
 import { Image, ScrollView, View } from 'react-native';
@@ -26,13 +30,17 @@ const TraineeAlertModal = (props, forwardedRef) => {
 
   // hide modal function
   const hideModal = () => {
-    setData({ ...data, isVisible: false });
+    setData(prev => ({ ...prev, isVisible: false }));
   };
 
   // show and hide functions for ref
   useImperativeHandle(forwardedRef, () => ({
-    show: (options = data) => {
-      setData({ ...options, isVisible: true });
+    show: options => {
+      setData(prev => ({
+        ...prev,
+        ...(options && typeof options === 'object' ? options : {}),
+        isVisible: true,
+      }));
     },
     hide: hideModal,
   }));
@@ -49,7 +57,9 @@ const TraineeAlertModal = (props, forwardedRef) => {
       backdropTransitionOutTiming={0}
       onBackdropPress={hideModal}
       style={styles.modal}
-      isVisible={data.isVisible}>
+      isVisible={data.isVisible}
+      coverScreen
+      statusBarTranslucent>
       <View style={styles.mainContainer}>
         <View
           style={{

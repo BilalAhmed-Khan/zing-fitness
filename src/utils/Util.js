@@ -10,10 +10,19 @@ import { authGetProfile, getUserData } from '../ducks/auth';
 import { getTrainerSession } from '../ducks/trainer';
 import { bookingDetails, trainerAccept } from '../ducks/booking';
 import NavigationService from './NavigationService';
-import { BOOKING_SESSION_TYPE } from '../config/Constants';
+import { BOOKING_SESSION_TYPE, BOOKING_STATUS } from '../config/Constants';
 import { unreadNotificationCount } from '../ducks/notification';
 import { createChatRoom } from '../ducks/chat';
 import { SessionUtill } from '../dataUtils';
+import UserUtill from '../dataUtils/UserUtill';
+import { getUserRole } from '../ducks/general';
+import {
+  FCM_EVENT_NOT_UNKNOWN_BOOKING,
+  getFcmPayloadIdentifier,
+  getFcmPayloadReferenceId,
+  matchesRealTimeBookingAccepted,
+  matchesRealTimeBookingInvite,
+} from './fcmPayload';
 
 function isPlatformAndroid() {
   return Platform.OS === 'android';
@@ -355,40 +364,23 @@ function getTimeSlotsFromMoment(currentDate, slotDuration) {
   return slots;
 }
 
-/** Align with FCM/Android payload variants (snake_case vs camelCase keys, string values). */
-function getFcmPayloadIdentifier(data) {
-  if (!data || typeof data !== 'object') {
-    return '';
-  }
-  const id =
-    data.identifier ??
-    data.target_identifier ??
-    data.TargetIdentifier ??
-    data.Identifier;
-  return id == null ? '' : String(id).trim();
-}
-
-function getFcmPayloadReferenceId(data) {
-  if (!data || typeof data !== 'object') {
-    return '';
-  }
-  const id =
-    data.reference_id ??
-    data.referenceId ??
-    data.booking_id ??
-    data.bookingId ??
-    data.ref_id;
-  return id == null ? '' : String(id).trim();
-}
-
 function onNotificationTap(data) {
   console.log('DATA ==>', data);
   const { dispatch } = DataHandler.getStore();
   const nid = getFcmPayloadIdentifier(data);
   const refId = getFcmPayloadReferenceId(data);
 
-  switch (nid) {
-    case 'chat_messages':
+  if (__DEV__) {
+    console.log('[FCM] onNotificationTap parsed:', {
+      nid,
+      refId,
+      inviteMatch: matchesRealTimeBookingInvite(nid),
+      acceptedMatch: matchesRealTimeBookingAccepted(nid),
+    });
+  }
+
+  switch (true) {
+    case nid === 'chat_messages':
       dispatch(
         createChatRoom.request({
           payloadApi: { userId: data.sender },
@@ -403,7 +395,7 @@ function onNotificationTap(data) {
         }),
       );
       break;
-    case 'real_time_booking':
+    case matchesRealTimeBookingInvite(nid):
       if (!refId) {
         break;
       }
@@ -412,6 +404,12 @@ function onNotificationTap(data) {
           payloadApi: { id: refId },
           identifier: refId,
           cb: detail => {
+            if (__DEV__) {
+              console.log(
+                '[FCM] onNotificationTap bookingDetails ok for invite',
+                detail?.id,
+              );
+            }
             setTimeout(() => {
               DataHandler.getTraineAlertModal()?.show?.({
                 data: detail,
@@ -421,7 +419,7 @@ function onNotificationTap(data) {
         }),
       );
       break;
-    case 'real_time_booking_accepted':
+    case matchesRealTimeBookingAccepted(nid):
       if (!refId) {
         break;
       }
@@ -451,7 +449,7 @@ function onNotificationTap(data) {
         }),
       );
       break;
-    case 'session_booked':
+    case nid === 'session_booked':
       // NavigationService.navigate('ScoreCardDetails', {
       //   id: data?.ref_id,
       // });
@@ -472,10 +470,10 @@ function onNotificationTap(data) {
         }),
       );
       break;
-    case 'booking_cancelled':
-    case 'class_booked':
-    case 'booking_completed':
-    case 'booking_started':
+    case nid === 'booking_cancelled':
+    case nid === 'class_booked':
+    case nid === 'booking_completed':
+    case nid === 'booking_started':
       if (!refId) {
         break;
       }
@@ -493,8 +491,46 @@ function onNotificationTap(data) {
         }),
       );
       break;
-    default:
+    default: {
+      const state = DataHandler.getStore().getState();
+      if (
+        getUserRole(state) &&
+        refId &&
+        !FCM_EVENT_NOT_UNKNOWN_BOOKING.has(nid) &&
+        !matchesRealTimeBookingAccepted(nid) &&
+        !matchesRealTimeBookingInvite(nid)
+      ) {
+        dispatch(
+          bookingDetails.request({
+            payloadApi: { id: refId },
+            identifier: refId,
+            cb: bookingDetail => {
+              if (
+                bookingDetail?.bookingType === 'realTime' &&
+                bookingDetail?.status === BOOKING_STATUS.PENDING
+              ) {
+                const me = UserUtill.id(getUserData(state));
+                const trainerId = UserUtill.id(bookingDetail?.trainer);
+                if (!trainerId || String(trainerId) === String(me)) {
+                  if (__DEV__) {
+                    console.log(
+                      '[FCM] onNotificationTap fallback invite modal',
+                      bookingDetail?.id,
+                    );
+                  }
+                  setTimeout(() => {
+                    DataHandler.getTraineAlertModal()?.show?.({
+                      data: bookingDetail,
+                    });
+                  }, 500);
+                }
+              }
+            },
+          }),
+        );
+      }
       break;
+    }
   }
 }
 

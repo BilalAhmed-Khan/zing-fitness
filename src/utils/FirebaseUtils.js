@@ -3,38 +3,77 @@ import PushNotificationIOS from '@react-native-community/push-notification-ios';
 import messaging from '@react-native-firebase/messaging';
 import PushNotification from 'react-native-push-notification';
 import { Util, DataHandler } from '.';
+import { BOOKING_STATUS } from '../config/Constants';
+import UserUtill from '../dataUtils/UserUtill';
+import { getUserData } from '../ducks/auth';
+import { getUserRole } from '../ducks/general';
 import { bookingDetails, trainerAccept } from '../ducks/booking';
 import { getChatCurrentRoomId } from '../ducks/chat';
+import {
+  FCM_EVENT_NOT_UNKNOWN_BOOKING,
+  getExpandedFcmPayload,
+  getFcmPayloadIdentifier,
+  getFcmPayloadReferenceId,
+  matchesRealTimeBookingAccepted,
+  matchesRealTimeBookingInvite,
+} from './fcmPayload';
 
-function fcmPayloadIdentifier(raw) {
-  if (!raw || typeof raw !== 'object') {
-    return '';
+/** Log FCM payloads in one place (RemoteMessage shape from @react-native-firebase/messaging). */
+function logFirebaseIncoming(source, remoteMessage) {
+  if (!remoteMessage || typeof remoteMessage !== 'object') {
+    console.log('[FCM] incoming:', source, remoteMessage);
+    return;
   }
-  const id =
-    raw.identifier ??
-    raw.target_identifier ??
-    raw.TargetIdentifier ??
-    raw.Identifier;
-  return id == null ? '' : String(id).trim();
+  const n = remoteMessage.notification;
+  console.log('[FCM] incoming:', source, {
+    messageId: remoteMessage.messageId,
+    from: remoteMessage.from,
+    collapseKey: remoteMessage.collapseKey,
+    sentTime: remoteMessage.sentTime,
+    ttl: remoteMessage.ttl,
+    data: remoteMessage.data,
+    notification: n
+      ? {
+          title: n.title,
+          body: n.body,
+          android: n.android,
+          apple: n.apple,
+        }
+      : undefined,
+  });
 }
 
-function fcmPayloadReferenceId(raw) {
-  if (!raw || typeof raw !== 'object') {
-    return '';
+/** Log whatever `handleNotification` receives (FCM RemoteMessage or PushNotification object). */
+function logNotificationPayload(source, notificationData) {
+  if (!notificationData || typeof notificationData !== 'object') {
+    console.log('[FCM] incoming:', source, notificationData);
+    return;
   }
-  const id =
-    raw.reference_id ??
-    raw.referenceId ??
-    raw.booking_id ??
-    raw.bookingId ??
-    raw.ref_id;
-  return id == null ? '' : String(id).trim();
+  if (
+    notificationData.messageId != null ||
+    notificationData.from != null ||
+    (notificationData.notification && notificationData.data)
+  ) {
+    logFirebaseIncoming(source, notificationData);
+    return;
+  }
+  console.log('[FCM] incoming (PushNotification):', source, {
+    title: notificationData.title,
+    message: notificationData.message,
+    data: notificationData.data,
+    userInfo: notificationData.userInfo,
+    foreground: notificationData.foreground,
+  });
 }
 
 function showRealtimeBookingInvitationModal(bookingPayload) {
   const modalRef = DataHandler.getTraineAlertModal();
   if (modalRef?.show) {
     modalRef.show({ data: bookingPayload });
+  } else {
+    console.warn(
+      '[FCM] TraineeAlertModal ref missing; cannot show real-time invite.',
+    );
   }
 }
 
@@ -62,7 +101,10 @@ class FirebaseUtils {
       return true;
     } catch (e) {
       if (__DEV__) {
-        console.warn('[FCM] registerDeviceForRemoteMessages failed:', e?.message ?? e);
+        console.warn(
+          '[FCM] registerDeviceForRemoteMessages failed:',
+          e?.message ?? e,
+        );
       }
       return false;
     }
@@ -74,7 +116,7 @@ class FirebaseUtils {
       const token = await messaging().getToken();
       const out = typeof token === 'string' ? token.trim() : '';
       if (__DEV__) {
-        console.log('[FCM] getToken:', out ? `${out.slice(0, 28)}…` : '(empty)');
+        console.log('[FCM] getToken (full):', out || '(empty)');
       }
       return out;
     } catch (e) {
@@ -148,17 +190,26 @@ class FirebaseUtils {
   };
 
   handleNotification = (notificationData, isNotification = true) => {
-    const { data } = notificationData;
+    logNotificationPayload('handleNotification', notificationData);
 
-    console.log('NOTIFICATION DATA =>', data);
+    let { data } = notificationData;
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch {
+        /* keep string */
+      }
+    }
 
-    if (data) {
+    console.log('[FCM] handleNotification parsed data =>', data);
+
+    if (data && typeof data === 'object') {
       Util.onNotificationTap(data);
     }
   };
 
   registerFCMListener = () => {
-    void this.setupFirebaseMessaging();
+    this.setupFirebaseMessaging().catch(() => {});
   };
 
   setupFirebaseMessaging = async () => {
@@ -170,6 +221,7 @@ class FirebaseUtils {
     this.setBadge();
 
     messaging().onNotificationOpenedApp(remoteMessage => {
+      logFirebaseIncoming('onNotificationOpenedApp', remoteMessage);
       this.handleNotification(remoteMessage);
     });
 
@@ -178,6 +230,7 @@ class FirebaseUtils {
       .getInitialNotification()
       .then(remoteMessage => {
         if (remoteMessage) {
+          logFirebaseIncoming('getInitialNotification', remoteMessage);
           this.handleNotification(remoteMessage);
         }
       });
@@ -185,46 +238,60 @@ class FirebaseUtils {
     this.tokenRefreshUnsubscribe?.();
     this.tokenRefreshUnsubscribe = messaging().onTokenRefresh(token => {
       if (__DEV__) {
-        console.log(
-          '[FCM] Token refreshed;',
-          typeof token === 'string' ? `${token.slice(0, 28)}…` : token,
-        );
+        const t = typeof token === 'string' ? token.trim() : token;
+        console.log('[FCM] Token refreshed (full):', t || '(empty)');
       }
       // Backend updates token mainly on login; re-login refreshes associations.
     });
 
     this.unsubscribe = messaging().onMessage(remoteMessage => {
-      const raw = remoteMessage?.data ?? {};
-      const identifier = fcmPayloadIdentifier(raw);
-      const referenceId = fcmPayloadReferenceId(raw);
+      logFirebaseIncoming('onMessage (foreground)', remoteMessage);
 
-      console.log('NOTIFICATION  ===>', remoteMessage?.notification, raw, {
+      const dataIn = remoteMessage?.data ?? {};
+      const raw =
+        typeof dataIn === 'object' && dataIn !== null
+          ? getExpandedFcmPayload(dataIn)
+          : {};
+      const identifier = getFcmPayloadIdentifier(raw);
+      const referenceId = getFcmPayloadReferenceId(raw);
+
+      console.log('[FCM] onMessage routing:', {
         identifier,
         referenceId,
+        inviteMatch: matchesRealTimeBookingInvite(identifier),
+        acceptedMatch: matchesRealTimeBookingAccepted(identifier),
       });
-      const chatRoomID = getChatCurrentRoomId(
-        DataHandler.getStore().getState(),
-      );
+
+      if (__DEV__) {
+        console.log('[FCM] onMessage keys:', Object.keys(dataIn ?? {}));
+        console.log('[FCM] expanded payload:', raw);
+      }
+
+      const state = DataHandler.getStore().getState();
+      const chatRoomID = getChatCurrentRoomId(state);
       Util.refreshNotificationData();
       const { dispatch } = DataHandler.getStore();
       const { notification } = remoteMessage ?? {};
 
-      if (identifier === 'real_time_booking' && referenceId) {
+      if (matchesRealTimeBookingInvite(identifier) && referenceId) {
         dispatch(
           bookingDetails.request({
             payloadApi: { id: referenceId },
             identifier: referenceId,
             cb: booking => {
+              if (__DEV__) {
+                console.log(
+                  '[FCM] bookingDetails ok for invite; opening modal.',
+                  booking?.id,
+                );
+              }
               setTimeout(() => {
                 showRealtimeBookingInvitationModal(booking);
               }, 500);
             },
           }),
         );
-      } else if (
-        identifier === 'real_time_booking_accepted' &&
-        referenceId
-      ) {
+      } else if (matchesRealTimeBookingAccepted(identifier) && referenceId) {
         dispatch(
           bookingDetails.request({
             payloadApi: { id: referenceId },
@@ -234,9 +301,47 @@ class FirebaseUtils {
             },
           }),
         );
-      } else if (fcmPayloadReferenceId(raw) === String(chatRoomID)) {
+      } else if (getFcmPayloadReferenceId(raw) === String(chatRoomID)) {
+      } else if (
+        getUserRole(state) &&
+        referenceId &&
+        getFcmPayloadReferenceId(raw) !== String(chatRoomID) &&
+        !FCM_EVENT_NOT_UNKNOWN_BOOKING.has(identifier) &&
+        !matchesRealTimeBookingAccepted(identifier) &&
+        !matchesRealTimeBookingInvite(identifier)
+      ) {
+        dispatch(
+          bookingDetails.request({
+            payloadApi: { id: referenceId },
+            identifier: referenceId,
+            cb: booking => {
+              if (
+                booking?.bookingType === 'realTime' &&
+                booking?.status === BOOKING_STATUS.PENDING
+              ) {
+                const me = UserUtill.id(getUserData(state));
+                const trainerId = UserUtill.id(booking?.trainer);
+                if (!trainerId || String(trainerId) === String(me)) {
+                  if (__DEV__) {
+                    console.log(
+                      '[FCM] Fallback invite modal from booking payload',
+                      booking?.id,
+                    );
+                  }
+                  setTimeout(() => {
+                    showRealtimeBookingInvitationModal(booking);
+                  }, 500);
+                }
+              }
+            },
+          }),
+        );
       } else if (Util.isPlatformAndroid()) {
-        this.showLocalNotification(notification?.title, notification?.body, raw);
+        this.showLocalNotification(
+          notification?.title,
+          notification?.body,
+          typeof dataIn === 'object' && dataIn !== null ? dataIn : {},
+        );
       }
     });
   };

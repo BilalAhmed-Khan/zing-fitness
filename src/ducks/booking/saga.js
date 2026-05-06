@@ -355,8 +355,22 @@ function* watchGetBookingDetails() {
           identifier,
         }),
       );
+      if (__DEV__) {
+        console.log('[bookingDetails] success', {
+          requestedId: id,
+          identifier,
+          bookingId: response?.data?.id,
+        });
+      }
       cb?.(response?.data);
     } catch (error) {
+      if (__DEV__) {
+        console.warn('[bookingDetails] failure', {
+          requestedId: id,
+          identifier,
+          message: error.message,
+        });
+      }
       yield put(
         bookingDetails.failure({
           errorMessage: error.message,
