@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>525587273234-lbbd0l7uil24i84l7vi79qth8m1vjjln.apps.googleusercontent.com</string>
+	<string>525587273234-16qfa3llahef9hqkorm30sq03hl4k3r5.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.525587273234-lbbd0l7uil24i84l7vi79qth8m1vjjln</string>
+	<string>com.googleusercontent.apps.525587273234-16qfa3llahef9hqkorm30sq03hl4k3r5</string>
 	<key>ANDROID_CLIENT_ID</key>
 	<string>525587273234-03cemgsemmc7oh0t4e5t7hfq8lpr8q22.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
@@ -15,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.zingFitness.app</string>
+	<string>com.zingfitness.users</string>
 	<key>PROJECT_ID</key>
 	<string>zingfitness-f0507</string>
 	<key>STORAGE_BUCKET</key>
@@ -31,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:525587273234:ios:d3332287bb4c7e2d352acb</string>
+	<string>1:525587273234:ios:8b8d456364883480352acb</string>
 </dict>
 </plist>

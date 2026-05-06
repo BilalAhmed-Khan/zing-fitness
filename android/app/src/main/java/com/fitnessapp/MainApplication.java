@@ -1,7 +1,12 @@
 package com.zingfitness.app;
 
 import android.app.Application;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Build;
+import androidx.annotation.Nullable;
 import com.zingfitness.app.BuildConfig;
 import com.facebook.react.PackageList;
 import com.facebook.react.ReactApplication;
@@ -39,6 +44,15 @@ public class MainApplication extends Application implements ReactApplication {
   @Override
   public ReactNativeHost getReactNativeHost() {
     return mReactNativeHost;
+  }
+
+  /** RN 0.68 dev reload receiver: API 33+ requires RECEIVER_* flag; delegating fixes prebuilt AAR. */
+  @Override
+  public Intent registerReceiver(@Nullable BroadcastReceiver receiver, IntentFilter filter) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      return super.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
+    }
+    return super.registerReceiver(receiver, filter);
   }
 
   @Override

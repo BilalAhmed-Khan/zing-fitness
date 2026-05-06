@@ -2,6 +2,12 @@ import { Platform } from 'react-native';
 import PushNotificationIOS from '@react-native-community/push-notification-ios';
 import messaging from '@react-native-firebase/messaging';
 import PushNotification from 'react-native-push-notification';
+import {
+  check,
+  PERMISSIONS,
+  request,
+  RESULTS,
+} from 'react-native-permissions';
 import { Util, DataHandler } from '.';
 import { BOOKING_STATUS } from '../config/Constants';
 import UserUtill from '../dataUtils/UserUtill';
@@ -90,6 +96,37 @@ class FirebaseUtils {
       authorizationStatus === messaging.AuthorizationStatus.AUTHORIZED ||
       authorizationStatus === messaging.AuthorizationStatus.PROVISIONAL
     );
+  };
+
+  /**
+   * Android 13+ blocks posting notifications until POST_NOTIFICATIONS is granted.
+   * Without this, FCM notification messages never appear in the tray (and locals won't show).
+   */
+  ensureAndroidPostNotificationsPermission = async () => {
+    if (Platform.OS !== 'android') {
+      return true;
+    }
+    if (typeof Platform.Version !== 'number' || Platform.Version < 33) {
+      return true;
+    }
+    try {
+      let status = await check(PERMISSIONS.ANDROID.POST_NOTIFICATIONS);
+      if (status !== RESULTS.GRANTED) {
+        status = await request(PERMISSIONS.ANDROID.POST_NOTIFICATIONS);
+      }
+      const ok = status === RESULTS.GRANTED;
+      if (__DEV__ && !ok) {
+        console.warn(
+          '[FCM] POST_NOTIFICATIONS denied — enable notifications in system settings for this app.',
+        );
+      }
+      return ok;
+    } catch (e) {
+      if (__DEV__) {
+        console.warn('[FCM] POST_NOTIFICATIONS check failed:', e?.message ?? e);
+      }
+      return false;
+    }
   };
 
   /** Ensure APNS registration (iOS) before token retrieval — avoids race / empty tokens at login */
@@ -214,6 +251,7 @@ class FirebaseUtils {
 
   setupFirebaseMessaging = async () => {
     await this.ensureRegisteredForRemoteMessages();
+    await this.ensureAndroidPostNotificationsPermission();
     await this.getPermission();
 
     this.createChannel();

@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools"
   package="com.zingfitness.app">
 
     <!-- Android 11+: required so the SDK can resolve the Facebook / Chrome Custom Tabs hand-off -->
@@ -17,6 +18,8 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Android 13+ (API 33): required to show notifications; must request at runtime too -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <application
       android:name="com.zingfitness.app.MainApplication"
@@ -63,5 +66,10 @@
     <meta-data
         android:name="com.google.android.gms.wallet.api.enabled"
         android:value="true" />
+    <!-- Use same channel id as FirebaseUtils.createChannel / localNotification -->
+    <meta-data
+        android:name="com.google.firebase.messaging.default_notification_channel_id"
+        android:value="zingFitness"
+        tools:replace="android:value" />
     </application>
 </manifest>
