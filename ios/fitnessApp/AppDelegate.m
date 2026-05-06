@@ -9,6 +9,7 @@
 #import <FBSDKCoreKit/FBSDKCoreKit-swift.h>
 
 #import <Firebase.h>
+#import <FirebaseMessaging/FirebaseMessaging.h>
 
 #ifdef FB_SONARKIT_ENABLED
 #import <FlipperKit/FlipperClient.h>
@@ -48,6 +49,10 @@ static void InitializeFlipper(UIApplication *application) {
   //firebase
   [FIRApp configure];
 
+  // RNFirebase skips registering for remote notifications on the iOS Simulator; without this,
+  // FIRMessaging never gets an APNs token → I-FCM002022 and pushes never route (Xcode 14+ sim can receive push).
+  [[UIApplication sharedApplication] registerForRemoteNotifications];
+
   //facebook
   [[FBSDKApplicationDelegate sharedInstance] application:application
                        didFinishLaunchingWithOptions:launchOptions];
@@ -77,6 +82,11 @@ static void InitializeFlipper(UIApplication *application) {
   return YES;
 }
 
+- (void)applicationDidBecomeActive:(UIApplication *)application {
+  // Re-register after returning from Settings / first notification permission grant (esp. Simulator).
+  [[UIApplication sharedApplication] registerForRemoteNotifications];
+}
+
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge
 {
 #if DEBUG
@@ -84,6 +94,24 @@ static void InitializeFlipper(UIApplication *application) {
 #else
   return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
 #endif
+}
+
+/**
+ * Success path logs here (Metro shows JS-side [FCM] setup complete).
+ * Firebase Messaging swizzling forwards this token to FIRMessaging.
+ */
+- (void)application:(UIApplication *)application
+    didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken {
+  NSLog(@"[FCM][iOS] didRegisterForRemoteNotifications OK (APNs token %lu bytes).",
+        (unsigned long)deviceToken.length);
+}
+
+/**
+ * Keep failure logging; successful token forwarding is handled by Firebase Messaging swizzling.
+ */
+- (void)application:(UIApplication *)application
+    didFailToRegisterForRemoteNotificationsWithError:(NSError *)error {
+  NSLog(@"[FCM][iOS] didFailToRegisterForRemoteNotificationsWithError: %@", error);
 }
 
 @end

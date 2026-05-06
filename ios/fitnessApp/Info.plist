@@ -35,7 +35,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.525587273234-lbbd0l7uil24i84l7vi79qth8m1vjjln</string>
+				<string>com.googleusercontent.apps.525587273234-16qfa3llahef9hqkorm30sq03hl4k3r5</string>
 			</array>
 		</dict>
 	</array>
@@ -129,5 +129,8 @@
 	<string>Light</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<!-- Explicit default: Firebase Messaging uses App Delegate swizzling (RNFB expects this). -->
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<true/>
 </dict>
 </plist>

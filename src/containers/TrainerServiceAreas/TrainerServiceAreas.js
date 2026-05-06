@@ -351,25 +351,18 @@ const TrainerServiceAreas = ({ route }) => {
     return () => clearTimeout(t);
   }, [currentLocation?.latitude, currentLocation?.longitude, isLoading]);
 
-  useEffect(() => {
-    const nextText = profileAddressString(address);
-    if (typeof nextText === 'string') {
-      placesRef.current?.setAddressText(nextText);
-    }
-  }, [address]);
-
   const onSearch = text => {
     // set text
     // console.log(text);
     setInputText(text);
   };
-  const saveAndDisplayAddress = info => {
-    // console.log(info);
+  const saveAndDisplayAddress = (info, { syncSearchField = true } = {}) => {
     const nextText = info?.address ?? '';
-    setInputText(nextText);
     setAddress(info);
-    placesRef.current?.setAddressText(nextText);
-    // console.log('saveAndDisplayAddress ==>', info);
+    if (syncSearchField) {
+      setInputText(nextText);
+      placesRef.current?.setAddressText(nextText);
+    }
   };
   const onSelectAutoSuggest = (data, details = null) => {
     const loc = details?.geometry?.location;
@@ -402,7 +395,9 @@ const TrainerServiceAreas = ({ route }) => {
           ...COORDINATES_DELTA,
         };
       });
-      runReverseGeocode(region.latitude, region.longitude, saveAndDisplayAddress);
+      runReverseGeocode(region.latitude, region.longitude, result =>
+        saveAndDisplayAddress(result, { syncSearchField: false }),
+      );
     }
   };
 
@@ -510,29 +505,12 @@ const TrainerServiceAreas = ({ route }) => {
             <Text style={Styles.heading}>
               {isTrainee ? 'Service Areas' : 'YOUR LOCATION & TIME ZONE'}
             </Text>
-            <View style={Styles.selectedLocationBox}>
-              <Text style={Styles.selectedLocationLabel}>
-                Selected location
-              </Text>
-              {profileAddressString(address) ? (
-                <Text
-                  style={Styles.selectedLocationText}
-                  numberOfLines={4}>
-                  {profileAddressString(address)}
-                </Text>
-              ) : (
-                <Text style={Styles.selectedLocationPlaceholder}>
-                  Search or move the map to set your location
-                </Text>
-              )}
-            </View>
             <GooglePlacesAutocomplete
               ref={placesRef}
               placeholder="Search"
               textInputProps={{
                 placeholderTextColor: Colors.black,
                 returnKeyType: 'search',
-                value: inputText,
                 onChangeText: onSearch,
                 onSubmitEditing: () => searchFromQuery(inputText),
               }}

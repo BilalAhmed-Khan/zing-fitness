@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import PushNotificationIOS from '@react-native-community/push-notification-ios';
 import messaging from '@react-native-firebase/messaging';
 import PushNotification from 'react-native-push-notification';
@@ -23,6 +23,8 @@ import {
   matchesRealTimeBookingAccepted,
   matchesRealTimeBookingInvite,
 } from './fcmPayload';
+
+let iosFcmPayloadHintLogged = false;
 
 /** Log FCM payloads in one place (RemoteMessage shape from @react-native-firebase/messaging). */
 function logFirebaseIncoming(source, remoteMessage) {
@@ -92,10 +94,36 @@ class FirebaseUtils {
     const authorizationStatus = await messaging().requestPermission(
       Platform.OS === 'ios' ? { provisional: true } : undefined,
     );
-    return (
+    const ok =
       authorizationStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-      authorizationStatus === messaging.AuthorizationStatus.PROVISIONAL
-    );
+      authorizationStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+    if (Platform.OS === 'ios' && ok) {
+      /**
+       * RNFB `requestPermission` only calls `requestAuthorization` — it never calls
+       * `registerForRemoteNotifications`. On simulator, RNFB also short-circuits
+       * `registerDeviceForRemoteMessages`, so FIRMessaging never receives an APNs token unless
+       * something triggers registration (I-FCM002022, undeliverable FCM tokens).
+       * RNCPushNotificationIOS resolves auth then registers — safe if already authorized (no extra prompt).
+       */
+      try {
+        const RNCP = NativeModules.RNCPushNotificationIOS;
+        await RNCP?.requestPermissions?.({
+          alert: true,
+          badge: true,
+          sound: true,
+        });
+      } catch (e) {
+        if (__DEV__) {
+          console.warn(
+            '[FCM] RNCPushNotificationIOS.requestPermissions failed (AppDelegate still registers):',
+            e?.message ?? e,
+          );
+        }
+      }
+    }
+
+    return ok;
   };
 
   /**
@@ -129,11 +157,40 @@ class FirebaseUtils {
     }
   };
 
+  /**
+   * RNFB resolves registerDeviceForRemoteMessages() immediately if the app already
+   * `isRegisteredForRemoteNotifications`, but FIRMessaging may not have received the APNs token yet.
+   * Calling getToken() in that gap triggers I-FCM002022 and an invalid IOS FCM registration.
+   */
+  waitUntilIosApnsTokenIsSet = async () => {
+    if (Platform.OS !== 'ios') {
+      return;
+    }
+    // Let native `didRegisterForRemoteNotifications` & `setAPNSToken` run after registerForRemoteNotifications.
+    await new Promise(r => setTimeout(r, 200));
+    const maxMs = 15000;
+    const stepMs = 100;
+    const started = Date.now();
+    while (Date.now() - started < maxMs) {
+      const apns = await messaging().getAPNSToken();
+      if (apns != null && apns !== '') {
+        return;
+      }
+      await new Promise(r => setTimeout(r, stepMs));
+    }
+    if (__DEV__) {
+      console.warn(
+        '[FCM] APNs token still missing after wait — enable Push Notifications capability, rebuild, try a physical device or Xcode-supported simulator push.',
+      );
+    }
+  };
+
   /** Ensure APNS registration (iOS) before token retrieval — avoids race / empty tokens at login */
   ensureRegisteredForRemoteMessages = async () => {
     try {
       if (Platform.OS === 'ios') {
         await messaging().registerDeviceForRemoteMessages();
+        await this.waitUntilIosApnsTokenIsSet();
       }
       return true;
     } catch (e) {
@@ -149,6 +206,9 @@ class FirebaseUtils {
 
   getTokenPromise = async () => {
     try {
+      if (Platform.OS === 'ios') {
+        await this.getPermission();
+      }
       await this.ensureRegisteredForRemoteMessages();
       const token = await messaging().getToken();
       const out = typeof token === 'string' ? token.trim() : '';
@@ -246,13 +306,17 @@ class FirebaseUtils {
   };
 
   registerFCMListener = () => {
-    this.setupFirebaseMessaging().catch(() => {});
+    this.setupFirebaseMessaging().catch(err => {
+      const msg = err?.message ?? String(err);
+      console.error('[FCM] setupFirebaseMessaging failed:', msg, err);
+    });
   };
 
   setupFirebaseMessaging = async () => {
-    await this.ensureRegisteredForRemoteMessages();
     await this.ensureAndroidPostNotificationsPermission();
+    // iOS: request notification auth before APNs registration (Apple + RNFB recommended order).
     await this.getPermission();
+    await this.ensureRegisteredForRemoteMessages();
 
     this.createChannel();
 
@@ -271,6 +335,9 @@ class FirebaseUtils {
           logFirebaseIncoming('getInitialNotification', remoteMessage);
           this.handleNotification(remoteMessage);
         }
+      })
+      .catch(err => {
+        console.error('[FCM] getInitialNotification failed:', err?.message ?? err);
       });
 
     this.tokenRefreshUnsubscribe?.();
@@ -380,15 +447,62 @@ class FirebaseUtils {
           notification?.body,
           typeof dataIn === 'object' && dataIn !== null ? dataIn : {},
         );
+      } else if (Platform.OS === 'ios') {
+        // Foreground: Android always showed a local notification here; iOS had no fallback,
+        // so Firebase Console “notification” tests appeared invisible while logs fired.
+        const title = notification?.title ?? '';
+        const body = notification?.body ?? '';
+        if (title || body) {
+          this.showLocalNotification(
+            title,
+            body,
+            typeof dataIn === 'object' && dataIn !== null ? dataIn : {},
+          );
+        }
       }
     });
+
+    /** iOS: run after RNFB Messaging attaches listeners so PushNotification does not replace the Firebase notification delegate first (see RNFB swizzling + UNUserNotificationCenter). Android unchanged. */
+    if (Platform.OS === 'ios') {
+      this.configurePushNotification();
+    }
+
+    if (__DEV__) {
+      if (Platform.OS === 'ios' && !iosFcmPayloadHintLogged) {
+        iosFcmPayloadHintLogged = true;
+        console.log(
+          '[FCM] iOS tip: visible system banners usually need FCM `notification` (title/body) or an APNS alert; pure data payloads are silent when app is backgrounded.',
+        );
+      }
+      try {
+        const apns = await messaging().getAPNSToken();
+        const fcmTok = await messaging().getToken();
+        console.log('[FCM] setup complete:', {
+          platform: Platform.OS,
+          hasApnsToken: !!(
+            Platform.OS === 'ios' &&
+            typeof apns === 'string' &&
+            apns.length > 0
+          ),
+          hasFcmToken: !!(typeof fcmTok === 'string' && fcmTok.trim().length > 0),
+        });
+      } catch (e) {
+        console.warn('[FCM] post-setup token probe failed:', e?.message ?? e);
+      }
+    }
   };
 
-  configure = () =>
+  configurePushNotification = () =>
     PushNotification.configure({
-      // (required) Called when a remote is received or opened, or local notification is opened
-      onNotification: this.handleNotification, //(...all) => console.log(...all, 'all'),
+      onNotification: this.handleNotification,
+      requestPermissions: Platform.OS !== 'ios',
     });
+
+  configure = () => {
+    if (Platform.OS === 'android') {
+      this.configurePushNotification();
+    }
+  };
 
   unRegisterFCMListener() {
     this.unsubscribe?.();
