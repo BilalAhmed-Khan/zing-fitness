@@ -32,10 +32,11 @@ import {
   API_APPLE_TOKEN,
 } from '../../config/WebServices';
 import { API_TRAINER_SIGNUP, API_USER_SIGNUP } from '../../config/WebServices';
-import { DataHandler, FirebaseUtils, Util } from '../../utils';
+import { DataHandler, Util } from '../../utils';
 import { callRequest, callRequestFileUpload } from '../../utils/ApiSauce';
 import { getUserRole } from '../general';
 
+import { attachAuthPushCredentials } from './deviceTokenAttach';
 import {
   authResetPassword,
   authEmailVerification,
@@ -81,7 +82,7 @@ function* watchSignUp() {
       const response = yield call(callRequestFileUpload, payloadApi.cropImage);
       payloadApi.cropImage = response?.data?.url;
     }
-    payloadApi.deviceToken = yield FirebaseUtils.getTokenPromise();
+    yield call(attachAuthPushCredentials, payloadApi);
     const isTrainee = getUserRole(DataHandler.getStore().getState());
     try {
       const response = yield call(
@@ -102,7 +103,7 @@ function* watchLogin() {
   while (true) {
     const { payload } = yield take(authLogin.request.type);
     const { payloadApi, cb } = payload;
-    payloadApi.deviceToken = yield FirebaseUtils.getTokenPromise();
+    yield call(attachAuthPushCredentials, payloadApi);
     try {
       const response = yield call(callRequest, API_LOGIN, payloadApi);
       yield put(authLogin.success({ data: response?.data }));
@@ -532,7 +533,7 @@ function* watchExternalLogin() {
   while (true) {
     const { payload } = yield take(externalLogin.request.type);
     const { payloadApi, cb } = payload;
-    payloadApi.deviceToken = yield FirebaseUtils.getTokenPromise();
+    yield call(attachAuthPushCredentials, payloadApi);
     try {
       const response = yield call(callRequest, API_EXTERNAL_LOGIN, payloadApi);
       yield put(externalLogin.success({ data: response?.data }));

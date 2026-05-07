@@ -1,13 +1,9 @@
 import { NativeModules, Platform } from 'react-native';
+import { syncPushDeviceTokenToBackend } from './syncPushDeviceTokenToBackend';
 import PushNotificationIOS from '@react-native-community/push-notification-ios';
 import messaging from '@react-native-firebase/messaging';
 import PushNotification from 'react-native-push-notification';
-import {
-  check,
-  PERMISSIONS,
-  request,
-  RESULTS,
-} from 'react-native-permissions';
+import { check, PERMISSIONS, request, RESULTS } from 'react-native-permissions';
 import { Util, DataHandler } from '.';
 import { BOOKING_STATUS } from '../config/Constants';
 import UserUtill from '../dataUtils/UserUtill';
@@ -337,17 +333,51 @@ class FirebaseUtils {
         }
       })
       .catch(err => {
-        console.error('[FCM] getInitialNotification failed:', err?.message ?? err);
+        console.error(
+          '[FCM] getInitialNotification failed:',
+          err?.message ?? err,
+        );
       });
 
     this.tokenRefreshUnsubscribe?.();
-    this.tokenRefreshUnsubscribe = messaging().onTokenRefresh(token => {
-      if (__DEV__) {
-        const t = typeof token === 'string' ? token.trim() : token;
-        console.log('[FCM] Token refreshed (full):', t || '(empty)');
-      }
-      // Backend updates token mainly on login; re-login refreshes associations.
-    });
+    this.tokenRefreshUnsubscribe = messaging().onTokenRefresh(
+      async newToken => {
+        const t = typeof newToken === 'string' ? newToken.trim() : '';
+        if (__DEV__) {
+          const preview =
+            t.length > 28
+              ? `${t.slice(0, 14)}…${t.slice(-10)}`
+              : t || '(empty)';
+          console.log('[FCM] Token refreshed (preview):', preview);
+        }
+        if (!t) {
+          return;
+        }
+        const platformTag = Platform.OS === 'ios' ? 'ios' : 'android';
+        const store = DataHandler.getStore?.();
+        const accessToken = store?.getState?.()?.auth?.data?.accessToken ?? '';
+        if (!accessToken || !store) {
+          return;
+        }
+        try {
+          const ok = await syncPushDeviceTokenToBackend(t, platformTag);
+          if (__DEV__) {
+            if (ok) {
+              console.log(
+                '[FCM] deviceToken synced to backend (update-profile).',
+              );
+            }
+          }
+        } catch (e) {
+          if (__DEV__) {
+            console.warn(
+              '[FCM] Token refresh backend sync failed (non-fatal):',
+              e?.message ?? e,
+            );
+          }
+        }
+      },
+    );
 
     this.unsubscribe = messaging().onMessage(remoteMessage => {
       logFirebaseIncoming('onMessage (foreground)', remoteMessage);
@@ -484,7 +514,9 @@ class FirebaseUtils {
             typeof apns === 'string' &&
             apns.length > 0
           ),
-          hasFcmToken: !!(typeof fcmTok === 'string' && fcmTok.trim().length > 0),
+          hasFcmToken: !!(
+            typeof fcmTok === 'string' && fcmTok.trim().length > 0
+          ),
         });
       } catch (e) {
         console.warn('[FCM] post-setup token probe failed:', e?.message ?? e);

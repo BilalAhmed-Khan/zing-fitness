@@ -37,6 +37,8 @@ export const API_TRAINER_SIGNUP = {
   access_token_required: false,
   type: REQUEST_TYPE.POST,
 };
+// Auth POST bodies send deviceToken (FCM) + platform: 'ios' | 'android' — persist per-device so platforms do not overwrite each other.
+
 export const API_LOGIN = {
   route: `${API}auth/login`,
   access_token_required: false,
