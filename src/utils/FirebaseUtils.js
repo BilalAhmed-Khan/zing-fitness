@@ -264,6 +264,28 @@ class FirebaseUtils {
       userInfo,
     });
 
+  /**
+   * Android does not post FCM "notification" payloads to the system tray while the app is in the
+   * foreground. Routes that handle real-time booking before the generic branch must call this so
+   * trainers still see a heads-up notification (iOS often presents foreground alerts via APNs).
+   */
+  showAndroidForegroundFcmTray = (remoteMessage, dataIn) => {
+    if (!Util.isPlatformAndroid()) {
+      return;
+    }
+    const n = remoteMessage?.notification;
+    const title = n?.title ?? '';
+    const body = n?.body ?? '';
+    if (!title && !body) {
+      return;
+    }
+    this.showLocalNotification(
+      title,
+      body,
+      typeof dataIn === 'object' && dataIn !== null ? dataIn : {},
+    );
+  };
+
   getRoomIdFromPayload = payload => {
     try {
       const payloadObject = JSON.parse(payload);
@@ -409,6 +431,7 @@ class FirebaseUtils {
       const { notification } = remoteMessage ?? {};
 
       if (matchesRealTimeBookingInvite(identifier) && referenceId) {
+        this.showAndroidForegroundFcmTray(remoteMessage, dataIn);
         dispatch(
           bookingDetails.request({
             payloadApi: { id: referenceId },
@@ -427,6 +450,7 @@ class FirebaseUtils {
           }),
         );
       } else if (matchesRealTimeBookingAccepted(identifier) && referenceId) {
+        this.showAndroidForegroundFcmTray(remoteMessage, dataIn);
         dispatch(
           bookingDetails.request({
             payloadApi: { id: referenceId },
@@ -472,11 +496,7 @@ class FirebaseUtils {
           }),
         );
       } else if (Util.isPlatformAndroid()) {
-        this.showLocalNotification(
-          notification?.title,
-          notification?.body,
-          typeof dataIn === 'object' && dataIn !== null ? dataIn : {},
-        );
+        this.showAndroidForegroundFcmTray(remoteMessage, dataIn);
       } else if (Platform.OS === 'ios') {
         // Foreground: Android always showed a local notification here; iOS had no fallback,
         // so Firebase Console “notification” tests appeared invisible while logs fired.
