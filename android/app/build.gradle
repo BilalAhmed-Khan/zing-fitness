@@ -112,7 +112,8 @@ def enableProguardInReleaseBuilds = false
  */
 //def jscFlavor = 'org.webkit:android-jsc:+'
 
-def jscFlavor = 'org.webkit:android-jsc-intl:+'
+// Pin version (avoid Gradle resolving `+` via maven-metadata.xml; breaks on some JDK/XML stacks).
+def jscFlavor = 'org.webkit:android-jsc-intl:r250230'
 
 /**
  * Whether to enable the Hermes VM.
@@ -133,6 +134,13 @@ android {
 
     compileSdkVersion rootProject.ext.compileSdkVersion
     namespace "com.zingfitness.app"
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildFeatures {
+        buildConfig true
+    }
     adbOptions {
         // Physical devices can be slow to respond during APK push/install.
         timeOutInMs 10 * 60 * 1000
@@ -143,8 +151,8 @@ android {
         applicationId "com.zingfitness.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 12
-        versionName "1.0.2"
+        versionCode 15
+        versionName "1.0.5"
     }
     splits {
         abi {
@@ -207,8 +215,8 @@ android {
 
 dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
-    //noinspection GradleDynamicVersion
-    implementation "com.facebook.react:react-native:+"  // From node_modules
+    // Pinned to match node_modules/react-native version (avoid `+` metadata resolution issues).
+    implementation "com.facebook.react:react-native:0.68.2"
     implementation platform('com.google.firebase:firebase-bom:31.1.0')
     implementation 'com.google.firebase:firebase-analytics'
 
@@ -244,3 +252,112 @@ task copyDownloadableDepsToLibs(type: Copy) {
 }
 
 apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
+
+// ---------------------------------------------------------------------------
+// React Native 0.68 prebuilt AAR: dev menu registers BroadcastReceiver without
+// RECEIVER_EXPORTED / NOT_EXPORTED (crashes on Android 13+ with modern targetSdk).
+// Recompile DevSupportManagerBase with the API 33+ fix and merge into classes.jar.
+// ---------------------------------------------------------------------------
+def rnDevsupportPatchSrc = file("${rootProject.projectDir}/rn-devsupport-patch-source/com/facebook/react/devsupport/DevSupportManagerBase.java")
+def rnAarForPatch = file("${rootProject.projectDir}/../node_modules/react-native/android/com/facebook/react/react-native/0.68.2/react-native-0.68.2.aar")
+def mergeRnDevsupportScript = file("${rootProject.projectDir}/scripts/merge_rn_devsupport_patch.py")
+
+tasks.register("patchReactNativeAarForApi34") {
+    group = "react"
+    description = "Patches react-native AAR DevSupportManagerBase for Android 13+ (dev menu + modern targetSdk)."
+    inputs.files(rnDevsupportPatchSrc, rnAarForPatch, mergeRnDevsupportScript)
+    outputs.file(file("$buildDir/rn-devsupport-patch.marker.json"))
+
+    doLast {
+        if (!rnAarForPatch.exists()) {
+            throw new GradleException("Missing react-native AAR at ${rnAarForPatch}. Run yarn install.")
+        }
+        if (!mergeRnDevsupportScript.exists()) {
+            throw new GradleException("Missing ${mergeRnDevsupportScript}")
+        }
+        def javacTask = tasks.getByName("compileDebugJavaWithJavac")
+        def cp = javacTask.classpath.asPath
+        def outDir = file("$buildDir/rn-devsupport-patched-classes")
+        delete outDir
+        mkdir outDir
+        exec {
+            commandLine "javac", "-encoding", "UTF-8", "-source", "8", "-target", "8",
+                "-cp", cp,
+                "-d", outDir.absolutePath,
+                rnDevsupportPatchSrc.absolutePath
+        }
+        exec {
+            commandLine "python3", mergeRnDevsupportScript.absolutePath,
+                rnAarForPatch.absolutePath,
+                outDir.absolutePath,
+                "$buildDir/rn-devsupport-patch.marker.json"
+        }
+    }
+}
+
+// Gradle 8+: RN copy*BundledJs shares intermediates/ with many AGP tasks — add explicit dependsOn (avoid asset/shader chain: that creates a cycle with merge*Assets).
+afterEvaluate {
+    ["Debug", "Release"].each { v ->
+        def copyTask = tasks.findByName("copy${v}BundledJs")
+        if (copyTask == null) return
+        [
+            "process${v}MainManifest",
+            "process${v}Manifest",
+            "process${v}ManifestForPackage",
+            "process${v}ManifestForInstantApp",
+            "process${v}Resources",
+            "parse${v}LocalResources",
+            "package${v}Resources",
+            "merge${v}JavaResource",
+            "merge${v}NativeLibs",
+            "strip${v}DebugSymbols",
+            "extract${v}NativeSymbolTables",
+            "extract${v}NativeDebugMetadata",
+            "merge${v}NativeDebugMetadata",
+            "configure${v}Dependencies",
+            "collect${v}Dependencies",
+            "merge${v}ArtProfile",
+            "compile${v}ArtProfile",
+            "package${v}Bundle",
+            "build${v}PreBundle",
+            "bundle${v}Resources",
+            "optimize${v}Resources",
+            "mergeExtDex${v}",
+            "dexBuilder${v}",
+            "mergeDex${v}",
+            "mergeLibDex${v}",
+            "check${v}DuplicateClasses",
+            "desugar${v}FileDependencies",
+            "merge${v}StartupProfile",
+            // bundleInDebug: copyBundledJs feeds intermediates/assets; AGP 8 compress*Assets must run after.
+            "compress${v}Assets",
+        ].each { taskName ->
+            def t = tasks.findByName(taskName)
+            if (t != null) t.dependsOn(copyTask)
+        }
+    }
+}
+
+// Gradle 8: bundle*JsAndAssets uses inputs.fileTree(reactRoot) (whole JS tree). AGP library tasks
+// under node_modules write to paths Gradle treats as overlapping; declare order vs common outputs.
+gradle.projectsEvaluated {
+    def appProj = rootProject.findProject(":app")
+    if (appProj == null) return
+    ["Debug", "Release"].each { v ->
+        def bundleTask = appProj.tasks.findByName("bundle${v}JsAndAssets")
+        if (bundleTask == null) return
+        rootProject.allprojects.each { p ->
+            p.tasks.each { t ->
+                def n = t.name
+                if (n == "compile${v}Aidl" || n == "write${v}AarMetadata" || n == "package${v}Renderscript") {
+                    bundleTask.dependsOn(t)
+                }
+            }
+        }
+    }
+}
+
+afterEvaluate {
+    tasks.named("compileDebugJavaWithJavac").configure { dependsOn("patchReactNativeAarForApi34") }
+    tasks.named("compileReleaseJavaWithJavac").configure { dependsOn("patchReactNativeAarForApi34") }
+}

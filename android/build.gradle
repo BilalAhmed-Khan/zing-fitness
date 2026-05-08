@@ -2,12 +2,10 @@
 
 buildscript {
     ext {
-        // API 35 + AGP 7.4.2: aapt2 fails to load android-35/android.jar ("RES_TABLE_TYPE_TYPE entry offsets overlap").
-        // Pin to 34 until the project upgrades Android Gradle Plugin (8.x+) and Gradle.
-        buildToolsVersion = "34.0.0"
+        buildToolsVersion = "35.0.0"
         minSdkVersion = 21
-        compileSdkVersion = 34
-        targetSdkVersion = 34
+        compileSdkVersion = 35
+        targetSdkVersion = 35
         ndkVersion = "21.4.7075529"
         googlePlayServicesAuthVersion = "19.2.0"
         // Used by react-native-fbsdk-next (default was 15.+). Pin for reproducible Android Login behavior.
@@ -18,8 +16,8 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:7.4.2")
-        classpath 'com.google.gms:google-services:4.3.13'
+        classpath("com.android.tools.build:gradle:8.6.1")
+        classpath 'com.google.gms:google-services:4.4.2'
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
     }
@@ -44,5 +42,40 @@ allprojects {
             }
         }
         maven { url 'https://www.jitpack.io' }
+    }
+}
+
+// Pin react-native / JSC versions used by the app and by autolinked libraries. Dynamic `+` forces
+// Gradle to parse local maven-metadata.xml, which fails on some JDK/XML stacks (SAX accessExternalSchema).
+subprojects { sub ->
+    sub.configurations.all { config ->
+        config.resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == "com.facebook.react" && details.requested.name == "react-native") {
+                details.useVersion("0.68.2")
+            }
+            if (details.requested.group == "org.webkit" && details.requested.name == "android-jsc-intl") {
+                details.useVersion("r250230")
+            }
+        }
+    }
+}
+
+// AGP 8+: namespace required; BuildConfig defaults off but many RN libs still use it.
+subprojects { sub ->
+    sub.plugins.withId("com.android.library") {
+        def androidExt = sub.extensions.findByName("android")
+        if (androidExt != null) {
+            androidExt.buildFeatures.buildConfig = true
+            if (!androidExt.namespace) {
+                def manifests = sub.fileTree(dir: sub.projectDir, includes: ["**/src/main/AndroidManifest.xml"]).files
+                def manifestFile = manifests.find { it.path.endsWith("/src/main/AndroidManifest.xml") }
+                if (manifestFile != null) {
+                    def pkg = new XmlParser().parse(manifestFile).attribute("package")
+                    if (pkg != null) {
+                        androidExt.namespace = pkg
+                    }
+                }
+            }
+        }
     }
 }

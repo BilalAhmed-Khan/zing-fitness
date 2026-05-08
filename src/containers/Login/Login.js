@@ -71,8 +71,8 @@ const Login = () => {
   const [formObj, emailProps, passwordProps] = useHookForm(
     ['emailAddress', 'password'],
     {
-      emailAddress: __DEV__ ? 'waiz@yopmail.com' : '',
-      password: __DEV__ ? 'Admin@123' : '',
+      emailAddress: '',
+      password: '',
     },
     ValidationSchema.logIn,
   );
