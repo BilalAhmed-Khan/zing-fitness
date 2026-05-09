@@ -80,6 +80,9 @@ import com.android.build.OutputFile
 
 project.ext.react = [
     enableHermes: false,  // clean and rebuild if changing
+    // AGP 7.4+ / 8.x: APK/AAB packaging reads merged assets under mergeReleaseAssets.
+    // Default copy destination (assets/release sibling) leaves the bundle out of the final package.
+    jsBundleDirRelease: "${project.buildDir}/intermediates/assets/release/mergeReleaseAssets",
 ]
 
 apply from: "../../node_modules/react-native/react.gradle"
@@ -151,8 +154,8 @@ android {
         applicationId "com.zingfitness.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 16
-        versionName "1.0.6"
+        versionCode 17
+        versionName "1.0.7"
     }
     splits {
         abi {
