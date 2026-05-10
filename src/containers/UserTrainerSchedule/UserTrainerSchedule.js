@@ -59,9 +59,19 @@ const UserTrainerSchedule = ({ route }) => {
   const id = route.params?.id ?? '';
   const trainerData = route.params?.trainerData ?? {};
   const isRealTime = route.params?.isRealTime ?? false;
+  /** Trainer user id for GET_TRAINER_SESSION / Redux session cache (never the class id). */
+  const trainerIdForApi = route.params?.trainerId ?? id ?? '';
+  const bookingEntityData = route.params?.data ?? {};
+  const isClassBooking = !isSession && !isRealTime;
+  const sessionFromStore =
+    useSelector(getSessionIdentifierData(trainerIdForApi)) ?? {};
   const data = isRealTime
-    ? route.params?.data
-    : useSelector(getSessionIdentifierData(id)) ?? {};
+    ? bookingEntityData
+    : isClassBooking
+    ? SessionUtill.mergeAvailableDateTimeSlots(bookingEntityData)
+    : Object.keys(sessionFromStore).length > 0
+    ? sessionFromStore
+    : SessionUtill.mergeAvailableDateTimeSlots(bookingEntityData);
   const authUser = useSelector(getUserData);
   const [markedDates, setMarkedDates] = useState([]);
   const [customDatesStyles, setCustomDateStyles] = useState([]);
@@ -267,10 +277,10 @@ const UserTrainerSchedule = ({ route }) => {
     let day = selectedDate.format('YYYY-MM-DD');
     dispatch(
       getTrainerSession.request({
-        payloadApi: { id: id },
+        payloadApi: { id: trainerIdForApi },
         apiPayload: { date: day },
-        cb: data => {
-          onDateSelected(selectedDate, data);
+        cb: sessionData => {
+          onDateSelected(selectedDate, sessionData);
         },
       }),
     );

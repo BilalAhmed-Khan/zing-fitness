@@ -28,6 +28,7 @@ const AvailableDayAndTime = ({
     <View style={Styles.daySelectorContainer}>
       {DAYS_LIST.map(_day => (
         <DayItem
+          key={_day.day}
           day={_day}
           isSelected={selectedDays.includes(_day.day)}
           onDaySelect={onDaySelect}

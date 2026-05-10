@@ -47,9 +47,12 @@ const UserSessionDetail = ({ route }) => {
   const userData = useSelector(getUserData);
   console.log('userData ==>', userData);
   const _onPress = () => {
+    const trainerIdForApi =
+      UserUtill.id(trainerData) || ClassUtill.userId(data) || id;
     NavigationService.navigate('UserTrainerSchedule', {
-      isSession: isSession,
+      isSession,
       id,
+      trainerId: trainerIdForApi,
       data,
       trainerData,
     });
@@ -142,7 +145,7 @@ const UserSessionDetail = ({ route }) => {
               <Image source={Images.clock} style={Styles.clock} />
               <Text style={Styles.text}>
                 {dayjs(SessionUtill.startTimeFull(data))
-                  .tz(SessionUtill.timeZone(data))
+                  .tz(SessionUtill.ianaTimeZone(data))
                   .format('hh:mm A')}
               </Text>
             </View>
@@ -153,7 +156,7 @@ const UserSessionDetail = ({ route }) => {
               <Image source={Images.clock} style={Styles.clock} />
               <Text style={Styles.text}>
                 {dayjs(SessionUtill.endTimeFull(data))
-                  .tz(SessionUtill.timeZone(data))
+                  .tz(SessionUtill.ianaTimeZone(data))
                   .format('hh:mm A')}
               </Text>
             </View>

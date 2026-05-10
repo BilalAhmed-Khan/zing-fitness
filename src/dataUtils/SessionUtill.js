@@ -1,3 +1,28 @@
+import dayjs from 'dayjs';
+
+function systemTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
+/** Empty or invalid API values break `dayjs().tz(zone)` with RangeError. */
+function safeIanaTimeZone(raw) {
+  const s = typeof raw === 'string' ? raw.trim() : '';
+  const fallback = dayjs.tz.guess() || systemTimeZone();
+  if (!s) {
+    return fallback;
+  }
+  try {
+    dayjs.utc('2000-01-01T00:00:00Z').tz(s);
+    return s;
+  } catch {
+    return fallback;
+  }
+}
+
 class SessionUtill {
   id = user => user?.id ?? '';
 
@@ -30,6 +55,9 @@ class SessionUtill {
   location = user => user?.location?.cordinates ?? [];
 
   timeZone = user => user?.timeZone ?? '';
+
+  /** Use with dayjs `.tz(...)` — always a valid IANA id (never `''`). */
+  ianaTimeZone = user => safeIanaTimeZone(user?.timeZone);
 
   duration = user => user?.duration ?? 0;
 
