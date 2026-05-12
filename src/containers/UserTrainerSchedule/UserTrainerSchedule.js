@@ -79,8 +79,8 @@ const UserTrainerSchedule = ({ route }) => {
   const [selectedPayment, setSelectedPayment] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
   const [participantsData, setParticipantsData] = useState([]);
-  const [cordinates, setCordinates] = useState(SessionUtill.location(data));
-  const [address, setAddress] = useState(SessionUtill.address(data));
+  const [cordinates, setCordinates] = useState(UserUtill.location(authUser));
+  const [address, setAddress] = useState(UserUtill.address(authUser));
   const dispatch = useDispatch();
 
   const [formObj, categoriesProps] = useHookForm(
